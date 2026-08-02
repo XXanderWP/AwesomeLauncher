@@ -7,6 +7,7 @@ import type {
   ProgressEvent,
   ServerOnlineStatus
 } from '@shared/types'
+import { resolveServerDisplayName } from '@shared/serverDisplayName'
 import { t } from '../i18n'
 import { InstanceJavaModal } from '../components/InstanceJavaModal'
 import { ElybyAccountCard } from '../components/ElybyAccountCard'
@@ -73,6 +74,11 @@ export function HomePage({
             {servers.map((server) => {
               const status = statuses[server.id]
               const selected = server.id === selectedId
+              const displayName = resolveServerDisplayName(
+                server.name,
+                status?.description,
+                config.cachedServerNames[server.id]
+              )
               return (
                 <div
                   key={server.id}
@@ -86,7 +92,7 @@ export function HomePage({
                 >
                   <img src={server.icon || ''} alt="" />
                   <div className="server-meta">
-                    <h3>{server.name}</h3>
+                    <h3>{displayName}</h3>
                     <p>
                       {server.minecraftVersion} · v{server.version} · {server.address}
                     </p>
@@ -143,7 +149,7 @@ export function HomePage({
                       disabled={busy || gameState.running}
                       onClick={(e) => {
                         e.stopPropagation()
-                        void deleteInstance(server.id, server.name)
+                        void deleteInstance(server.id, displayName)
                       }}
                     >
                       {t('instance.delete')}
@@ -182,7 +188,15 @@ export function HomePage({
       <InstanceJavaModal
         open={Boolean(javaServer)}
         serverId={javaServer?.id || ''}
-        serverName={javaServer?.name || ''}
+        serverName={
+          javaServer
+            ? resolveServerDisplayName(
+                javaServer.name,
+                statuses[javaServer.id]?.description,
+                config.cachedServerNames[javaServer.id]
+              )
+            : ''
+        }
         config={config}
         totalMemoryMb={totalMemoryMb}
         packMin={javaServer?.java.ram.minimum}

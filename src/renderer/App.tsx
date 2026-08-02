@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AppConfig,
   DistroServerSummary,
@@ -106,6 +106,9 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
+  const configRef = useRef(config)
+  configRef.current = config
+
   useEffect(() => {
     if (!servers.length) return
     let cancelled = false
@@ -117,8 +120,26 @@ export function App(): React.JSX.Element {
           return [server.id, status] as const
         })
       )
-      if (!cancelled) {
-        setStatuses(Object.fromEntries(entries))
+      if (cancelled) return
+
+      setStatuses(Object.fromEntries(entries))
+
+      const current = configRef.current
+      if (!current) return
+
+      const cachedServerNames = { ...current.cachedServerNames }
+      let changed = false
+      for (const [serverId, status] of entries) {
+        const liveName = status.online ? status.description?.trim() : ''
+        if (liveName && cachedServerNames[serverId] !== liveName) {
+          cachedServerNames[serverId] = liveName
+          changed = true
+        }
+      }
+
+      if (changed) {
+        const updated = await window.awesomeAPI.updateConfig({ cachedServerNames })
+        if (!cancelled) setConfig(updated)
       }
     }
 

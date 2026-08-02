@@ -11,7 +11,7 @@ import type {
 import { createClientToken } from '../auth/elybyAuth'
 import { defaultDataDirectory } from '../../utils/paths'
 
-const CONFIG_VERSION = 2
+const CONFIG_VERSION = 3
 
 const DEFAULT_JVM_OPTIONS = [
   '-XX:+UseG1GC',
@@ -71,7 +71,8 @@ function buildDefaultConfig(): AppConfig {
       }
     },
     javaDefaults: buildDefaultJavaSettings(),
-    javaByServer: {}
+    javaByServer: {},
+    cachedServerNames: {}
   }
 }
 
@@ -223,6 +224,9 @@ export class ConfigService {
       // Migrate older configs that only had javaByServer entries.
       const firstOverride = Object.values(merged.javaByServer || {})[0]
       merged.javaDefaults = buildDefaultJavaSettings(firstOverride)
+    }
+    if (!merged.cachedServerNames) {
+      merged.cachedServerNames = {}
     }
     return merged
   }

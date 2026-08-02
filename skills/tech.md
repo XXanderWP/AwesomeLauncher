@@ -27,6 +27,7 @@
 
 - Dark modern UI, border-radius 5px max
 - Multi-server ready list UI
+- Server list title uses live MOTD (`description`) from status ping, cached in `config.cachedServerNames` when offline
 - Real-time game logs + kill button while game runs
 - Compact `btn-sm` for logout / instance actions / running-game controls
 - Shared Java defaults in Settings; per-server overrides from Home

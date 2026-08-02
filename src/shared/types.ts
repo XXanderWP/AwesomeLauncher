@@ -47,6 +47,11 @@ export interface AppConfig {
   /** Shared Java defaults; per-server overrides live in javaByServer. */
   javaDefaults: JavaServerSettings
   javaByServer: Record<string, JavaServerSettings>
+  /**
+   * Last known live server names from status MOTD, keyed by distro server id.
+   * Used when the game server is offline.
+   */
+  cachedServerNames: Record<string, string>
 }
 
 export interface DistroServerSummary {
@@ -75,6 +80,7 @@ export interface ServerOnlineStatus {
   playersOnline: number
   playersMax: number
   versionName: string | null
+  /** Plain-text MOTD / live server name from status ping. */
   description: string | null
   latencyMs: number | null
   error?: string
