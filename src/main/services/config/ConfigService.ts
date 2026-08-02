@@ -8,20 +8,11 @@ import type {
   LanguageSetting,
   UpdateMode
 } from '../../../shared/types'
+import { getDefaultJvmOptions } from '../../../shared/javaDefaults'
 import { createClientToken } from '../auth/elybyAuth'
 import { defaultDataDirectory } from '../../utils/paths'
 
 const CONFIG_VERSION = 3
-
-/** Match AwesomeCraftLauncher / Helios Java 17 defaults (not Aikar server flags). */
-const DEFAULT_JVM_OPTIONS = [
-  '-XX:+UnlockExperimentalVMOptions',
-  '-XX:+UseG1GC',
-  '-XX:G1NewSizePercent=20',
-  '-XX:G1ReservePercent=20',
-  '-XX:MaxGCPauseMillis=50',
-  '-XX:G1HeapRegionSize=32M'
-]
 
 export function buildDefaultJavaSettings(
   defaults?: Partial<JavaServerSettings>
@@ -30,7 +21,7 @@ export function buildDefaultJavaSettings(
     minRamMb: defaults?.minRamMb ?? 4096,
     maxRamMb: defaults?.maxRamMb ?? 8192,
     javaPath: defaults?.javaPath ?? null,
-    jvmOptions: defaults?.jvmOptions ?? [...DEFAULT_JVM_OPTIONS]
+    jvmOptions: defaults?.jvmOptions ?? getDefaultJvmOptions()
   }
 }
 

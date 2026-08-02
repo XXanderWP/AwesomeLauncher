@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AppConfig, JavaServerSettings } from '@shared/types'
+import { getDefaultJvmOptions } from '@shared/javaDefaults'
 import { validateRamLimits } from '@shared/ramValidation'
 import { t } from '../i18n'
 import { RamSliderField } from './RamSliderField'
@@ -127,9 +128,19 @@ export function InstanceJavaModal({
             onChange={(e) => setDraft({ ...draft, javaPath: e.target.value || null })}
           />
         </label>
-        <label className="field">
-          {t('settings.jvmOptions')}
+        <div className="field">
+          <div className="field-row">
+            <label htmlFor="instance-jvm-options">{t('settings.jvmOptions')}</label>
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => setDraft({ ...draft, jvmOptions: getDefaultJvmOptions() })}
+            >
+              {t('settings.jvmOptions.reset')}
+            </button>
+          </div>
           <textarea
+            id="instance-jvm-options"
             rows={4}
             value={(draft.jvmOptions || []).join('\n')}
             onChange={(e) =>
@@ -142,7 +153,7 @@ export function InstanceJavaModal({
               })
             }
           />
-        </label>
+        </div>
 
         <div className="hint">{t('instance.java.packHint', packMin, packMax)}</div>
 

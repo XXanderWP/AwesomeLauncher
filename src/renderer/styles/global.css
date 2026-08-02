@@ -436,6 +436,11 @@ a {
   display: flex;
   gap: 10px;
   align-items: center;
+  justify-content: space-between;
+}
+
+.field-row label {
+  margin: 0;
 }
 
 .checkbox {

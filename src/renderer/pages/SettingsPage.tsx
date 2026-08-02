@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AppConfig, LanguageSetting, UpdateStatus } from '@shared/types'
+import { getDefaultJvmOptions } from '@shared/javaDefaults'
 import { validateRamLimits } from '@shared/ramValidation'
 import { t } from '../i18n'
 import { RamSliderField } from '../components/RamSliderField'
@@ -303,9 +304,24 @@ export function SettingsPage({
             placeholder="auto"
           />
         </label>
-        <label className="field">
-          {t('settings.jvmOptions')}
+        <div className="field">
+          <div className="field-row">
+            <label htmlFor="settings-jvm-options">{t('settings.jvmOptions')}</label>
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() =>
+                setDraft({
+                  ...draft,
+                  javaDefaults: { ...java, jvmOptions: getDefaultJvmOptions() }
+                })
+              }
+            >
+              {t('settings.jvmOptions.reset')}
+            </button>
+          </div>
           <textarea
+            id="settings-jvm-options"
             rows={5}
             value={(java.jvmOptions || []).join('\n')}
             onChange={(e) =>
@@ -321,7 +337,7 @@ export function SettingsPage({
               })
             }
           />
-        </label>
+        </div>
       </section>
 
       {isLinux && (

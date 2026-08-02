@@ -29,6 +29,7 @@ import {
   pickMacDmgAsset,
   resolveMacAppBundlePath
 } from '../../src/main/services/updater/macManualUpdate'
+import { getDefaultJvmOptions } from '../../src/shared/javaDefaults'
 
 const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
 const {
@@ -55,6 +56,7 @@ describe('ConfigService', () => {
     expect(cfg.settings.launcher.preservePlayerConfigs).toBe(true)
     expect(cfg.settings.launcher.language).toBe('system')
     expect(cfg.javaDefaults.maxRamMb).toBeGreaterThan(0)
+    expect(cfg.javaDefaults.jvmOptions).toEqual(getDefaultJvmOptions())
     expect(cfg.cachedServerNames).toEqual({})
 
     await service.setAccount(

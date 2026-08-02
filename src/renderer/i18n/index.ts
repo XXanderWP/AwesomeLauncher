@@ -87,6 +87,7 @@ const translations = {
     'settings.maxRam': 'Maximum memory (MB)',
     'settings.javaPath': 'Java executable',
     'settings.jvmOptions': 'JVM options',
+    'settings.jvmOptions.reset': 'Reset to defaults',
     'settings.ram.minMaxError': 'Maximum memory must be greater than or equal to minimum memory.',
     'settings.ram.yellowWarning':
       'More than 50% of system RAM is selected. Performance may suffer.',
@@ -208,6 +209,7 @@ const translations = {
     'settings.maxRam': 'Максимум памяти (МБ)',
     'settings.javaPath': 'Исполняемый файл Java',
     'settings.jvmOptions': 'Параметры JVM',
+    'settings.jvmOptions.reset': 'Сбросить по умолчанию',
     'settings.ram.minMaxError': 'Максимум памяти должен быть не меньше минимума.',
     'settings.ram.yellowWarning':
       'Выбрано больше 50% ОЗУ системы. Возможны просадки производительности.',
@@ -328,6 +330,7 @@ const translations = {
     'settings.maxRam': "Максимум пам'яті (МБ)",
     'settings.javaPath': 'Виконуваний файл Java',
     'settings.jvmOptions': 'Параметри JVM',
+    'settings.jvmOptions.reset': 'Скинути за замовчуванням',
     'settings.ram.minMaxError': "Максимум пам'яті має бути не меншим за мінімум.",
     'settings.ram.yellowWarning':
       'Обрано понад 50% ОЗП системи. Можливі просідання продуктивності.',
