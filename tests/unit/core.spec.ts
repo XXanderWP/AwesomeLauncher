@@ -31,6 +31,8 @@ import {
 import { validateRamLimits, clampRamMb } from '../../src/shared/ramValidation'
 import {
   elybySkinUrl,
+  elybyTexturesUrl,
+  upgradeElybyAssetUrl,
   elybyProfileUrl,
   parseElyAccountId,
   shortUuid
@@ -195,6 +197,10 @@ describe('ramValidation', () => {
 describe('elybyProfile helpers', () => {
   it('builds skin and profile urls', () => {
     expect(elybySkinUrl('Steve', 1)).toContain('/skins/Steve.png')
+    expect(elybyTexturesUrl('Steve')).toBe('https://skinsystem.ely.by/textures/Steve')
+    expect(upgradeElybyAssetUrl('http://ely.by/storage/skins/abc.png')).toBe(
+      'https://ely.by/storage/skins/abc.png'
+    )
     expect(elybyProfileUrl({ username: 'XanderWP', displayName: 'XanderWP', elyId: 3575339 })).toBe(
       'https://ely.by/u3575339'
     )
@@ -346,6 +352,55 @@ displayURL="https://example.com/mod"
     ])
 
     await fs.remove(dir)
+  })
+})
+
+describe('ModsService install', () => {
+  const fs = require('fs-extra')
+  const os = require('os')
+  const path = require('path')
+  const AdmZip = require('adm-zip')
+  const { ModsService } = require('../../src/main/services/mods/ModsService')
+
+  it('previews and installs a jar into instance mods', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mods-svc-'))
+    const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mod-src-'))
+    const jarPath = path.join(sourceDir, 'coolmod.jar')
+    const zip = new AdmZip()
+    zip.addFile(
+      'fabric.mod.json',
+      Buffer.from(
+        JSON.stringify({
+          id: 'coolmod',
+          name: 'Cool Mod',
+          version: '2.0.0',
+          description: 'Nice',
+          authors: ['Dev'],
+          contact: { homepage: 'https://example.com/cool' }
+        }),
+        'utf8'
+      )
+    )
+    zip.writeZip(jarPath)
+
+    const service = new ModsService(
+      { getDataDirectory: () => dataDir },
+      { get: async () => ({ raw: { servers: [] } }) }
+    )
+
+    const preview = await service.previewMod(jarPath)
+    expect(preview.name).toBe('Cool Mod')
+    expect(preview.homepage).toBe('https://example.com/cool')
+
+    const installed = await service.installUserMod('srv1', jarPath)
+    expect(installed.fileName).toBe('coolmod.jar')
+    expect(installed.source).toBe('user')
+    expect(await fs.pathExists(installed.filePath)).toBe(true)
+
+    await expect(service.installUserMod('srv1', jarPath)).rejects.toThrow(/already exists/i)
+
+    await fs.remove(dataDir)
+    await fs.remove(sourceDir)
   })
 })
 

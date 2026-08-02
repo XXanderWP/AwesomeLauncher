@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { IPC } from '../shared/types'
 import type {
   AppConfig,
@@ -6,6 +6,7 @@ import type {
   GameLogLine,
   GameProcessState,
   ModInfo,
+  ModPreview,
   ProgressEvent,
   ServerModsPayload,
   ServerOnlineStatus,
@@ -81,11 +82,20 @@ const api = {
     ipcRenderer.invoke(IPC.MODS_SET_ENABLED, { serverId, filePath, enabled }),
   deleteMod: (serverId: string, filePath: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.MODS_DELETE, { serverId, filePath }),
+  previewMod: (sourcePath: string): Promise<ModPreview> =>
+    ipcRenderer.invoke(IPC.MODS_PREVIEW, sourcePath),
+  installMod: (serverId: string, sourcePath: string): Promise<ModInfo> =>
+    ipcRenderer.invoke(IPC.MODS_INSTALL, { serverId, sourcePath }),
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
   getGameState: (): Promise<GameProcessState> => ipcRenderer.invoke(IPC.GAME_STATE),
   getGameLogs: (): Promise<GameLogLine[]> => ipcRenderer.invoke(IPC.GAME_LOGS),
   killGame: (): Promise<GameProcessState> => ipcRenderer.invoke(IPC.GAME_KILL),
   clearGameLogs: (): Promise<boolean> => ipcRenderer.invoke(IPC.GAME_CLEAR_LOGS),
+  exportGameLogs: (): Promise<{ saved: false } | { saved: true; path: string }> =>
+    ipcRenderer.invoke(IPC.GAME_EXPORT_LOGS),
+  fetchElybySkin: (username: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.ELYBY_FETCH_SKIN, username),
 
   getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_STATUS),
   checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
@@ -98,6 +108,16 @@ const api = {
     ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_INSTALL),
   removeDesktopShortcut: (): Promise<DesktopShortcutStatus> =>
     ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_REMOVE),
+
+  windowMinimize: (): Promise<boolean> => ipcRenderer.invoke(IPC.WINDOW_MINIMIZE),
+  windowToggleMaximize: (): Promise<boolean> => ipcRenderer.invoke(IPC.WINDOW_TOGGLE_MAXIMIZE),
+  windowClose: (): Promise<boolean> => ipcRenderer.invoke(IPC.WINDOW_CLOSE),
+  windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke(IPC.WINDOW_IS_MAXIMIZED),
+  onWindowMaximized: (cb: (maximized: boolean) => void): (() => void) => {
+    const listener = (_: Electron.IpcRendererEvent, maximized: boolean): void => cb(maximized)
+    ipcRenderer.on(IPC.EVENT_WINDOW_MAXIMIZED, listener)
+    return () => ipcRenderer.removeListener(IPC.EVENT_WINDOW_MAXIMIZED, listener)
+  },
 
   onProgress: (cb: (event: ProgressEvent) => void): (() => void) => {
     const listener = (_: Electron.IpcRendererEvent, payload: ProgressEvent): void => cb(payload)

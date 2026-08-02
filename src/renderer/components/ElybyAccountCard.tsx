@@ -1,6 +1,6 @@
 import type { ElybyAccount } from '@shared/types'
 import { ELYBY_ACCOUNT_DASHBOARD_URL } from '@shared/elybyProfile'
-import { elybyProfileUrl, shortUuid } from '@shared/elybyProfile'
+import { elybyProfileUrl } from '@shared/elybyProfile'
 import { t } from '../i18n'
 import { ElybyAvatar } from './ElybyAvatar'
 
@@ -21,12 +21,6 @@ export function ElybyAccountCard({ account, onLogout }: Props): React.JSX.Elemen
       <ElybyAvatar username={account.displayName || account.username} size={72} />
       <div className="account-card-meta">
         <div className="account-card-title">{account.displayName}</div>
-        <div className="account-card-sub muted">
-          {t('account.provider')} · {account.username}
-        </div>
-        <div className="account-card-uuid muted" title={account.uuid}>
-          UUID: {shortUuid(account.uuid)}
-        </div>
         <div className="actions actions-compact" style={{ marginTop: 10 }}>
           <button
             className="btn btn-sm primary"

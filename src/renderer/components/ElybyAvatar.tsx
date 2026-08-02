@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { elybySkinUrl } from '@shared/elybyProfile'
 
 interface Props {
   username: string
@@ -15,9 +14,19 @@ function renderHeadDataUrl(skin: HTMLImageElement, size: number): string {
   const ctx = canvas.getContext('2d')
   if (!ctx) return ''
   ctx.imageSmoothingEnabled = false
+  // Face + helmet overlay (Minecraft skin UV layout).
   ctx.drawImage(skin, 8 * scale, 8 * scale, 8 * scale, 8 * scale, 0, 0, size, size)
   ctx.drawImage(skin, 40 * scale, 8 * scale, 8 * scale, 8 * scale, 0, 0, size, size)
   return canvas.toDataURL()
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Failed to decode skin image'))
+    img.src = src
+  })
 }
 
 export function ElybyAvatar({ username, size = 72, className }: Props): React.JSX.Element {
@@ -25,20 +34,29 @@ export function ElybyAvatar({ username, size = 72, className }: Props): React.JS
 
   useEffect(() => {
     let cancelled = false
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      if (cancelled) return
+    const name = username.trim()
+    if (!name) {
+      setSrc(null)
+      return
+    }
+
+    setSrc(null)
+    void (async () => {
       try {
-        setSrc(renderHeadDataUrl(img, size))
+        // Main-process fetch avoids CSP/CORS issues with Ely.by redirect → http storage.
+        const dataUrl = await window.awesomeAPI.fetchElybySkin(name)
+        if (cancelled || !dataUrl) {
+          if (!cancelled) setSrc(null)
+          return
+        }
+        const skin = await loadImage(dataUrl)
+        if (cancelled) return
+        setSrc(renderHeadDataUrl(skin, size) || null)
       } catch {
-        setSrc(null)
+        if (!cancelled) setSrc(null)
       }
-    }
-    img.onerror = () => {
-      if (!cancelled) setSrc(null)
-    }
-    img.src = elybySkinUrl(username)
+    })()
+
     return () => {
       cancelled = true
     }

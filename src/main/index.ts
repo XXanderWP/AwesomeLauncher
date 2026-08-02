@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron'
 import fs from 'fs-extra'
 import os from 'os'
 import { join } from 'path'
@@ -21,6 +21,7 @@ import {
   enrichAccountWithElyId,
   ensurePlayableSession
 } from './services/auth/elybyDeviceCode'
+import { fetchElybySkinDataUrl } from './services/auth/elybySkinFetch'
 import { fetchServerStatus } from './services/server-status/serverStatus'
 import {
   getLinuxShortcutStatus,
@@ -61,6 +62,7 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 640,
     show: false,
+    frame: false,
     backgroundColor: '#0f1218',
     title: 'AwesomeCraft Launcher',
     autoHideMenuBar: true,
@@ -72,9 +74,17 @@ function createWindow(): void {
     }
   })
 
+  mainWindow.setMenuBarVisibility(false)
+
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
   })
+
+  const sendMaximized = (): void => {
+    mainWindow?.webContents.send(IPC.EVENT_WINDOW_MAXIMIZED, mainWindow.isMaximized())
+  }
+  mainWindow.on('maximize', sendMaximized)
+  mainWindow.on('unmaximize', sendMaximized)
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     void shell.openExternal(details.url)
@@ -203,6 +213,11 @@ function registerIpc(): void {
     }
   })
 
+  ipcMain.handle(IPC.ELYBY_FETCH_SKIN, async (_e, username: string) => {
+    if (typeof username !== 'string' || !username.trim()) return null
+    return fetchElybySkinDataUrl(username.trim())
+  })
+
   ipcMain.handle(IPC.DISTRO_GET, async () => distroService.get())
   ipcMain.handle(IPC.DISTRO_REFRESH, async () => distroService.refresh())
 
@@ -257,6 +272,18 @@ function registerIpc(): void {
     }
     return modsService.deleteUserMod(payload.serverId, payload.filePath)
   })
+  ipcMain.handle(IPC.MODS_PREVIEW, async (_e, sourcePath: string) => {
+    return modsService.previewMod(sourcePath)
+  })
+  ipcMain.handle(
+    IPC.MODS_INSTALL,
+    async (_e, payload: { serverId: string; sourcePath: string }) => {
+      if (gameService.getState().running) {
+        throw new Error('Stop the game before installing mods')
+      }
+      return modsService.installUserMod(payload.serverId, payload.sourcePath)
+    }
+  )
 
   ipcMain.handle(IPC.GAME_STATE, () => gameService.getState())
   ipcMain.handle(IPC.GAME_LOGS, () => gameService.getLogs())
@@ -264,6 +291,48 @@ function registerIpc(): void {
   ipcMain.handle(IPC.GAME_CLEAR_LOGS, () => {
     gameService.clearLogs()
     return true
+  })
+  ipcMain.handle(IPC.GAME_EXPORT_LOGS, async () => {
+    const stamp = new Date()
+    const stampFile = stamp.toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      title: 'Export Minecraft logs',
+      defaultPath: `AwesomeLauncher-logs-${stampFile}.txt`,
+      filters: [{ name: 'Text', extensions: ['txt'] }]
+    })
+    if (result.canceled || !result.filePath) {
+      return { saved: false as const }
+    }
+
+    const config = configService.get()
+    const account = configService.getSelectedAccount()
+    const gameState = gameService.getState()
+    const logs = gameService.getLogs()
+    const lines = [
+      'AwesomeCraft Launcher — Minecraft logs export',
+      `Exported: ${stamp.toISOString()}`,
+      `Launcher version: ${app.getVersion()}`,
+      `Platform: ${process.platform} ${process.arch}`,
+      `OS: ${os.type()} ${os.release()}`,
+      `Locale: ${app.getLocale()}`,
+      `Memory: ${bytesToMb(os.totalmem())} MB total / ${bytesToMb(os.freemem())} MB free`,
+      `Data directory: ${config.settings.launcher.dataDirectory}`,
+      `Selected server: ${config.selectedServerId || '(none)'}`,
+      `Account: ${account?.username || '(none)'} (${account?.uuid || 'n/a'})`,
+      `Game running: ${gameState.running ? 'yes' : 'no'}`,
+      `Game PID: ${gameState.pid ?? 'n/a'}`,
+      `Game startedAt: ${gameState.startedAt ? new Date(gameState.startedAt).toISOString() : 'n/a'}`,
+      `Game exitCode: ${gameState.exitCode ?? 'n/a'}`,
+      '',
+      `----- logs (${logs.length} lines) -----`,
+      ...logs.map((line) => {
+        const time = new Date(line.timestamp).toISOString()
+        return `[${time}] [${line.stream}] ${line.text}`
+      })
+    ]
+
+    await fs.writeFile(result.filePath, `${lines.join('\n')}\n`, 'utf8')
+    return { saved: true as const, path: result.filePath }
   })
 
   ipcMain.handle(IPC.UPDATE_STATUS, () => updaterService.getStatus())
@@ -277,9 +346,27 @@ function registerIpc(): void {
   ipcMain.handle(IPC.DESKTOP_SHORTCUT_STATUS, () => getLinuxShortcutStatus())
   ipcMain.handle(IPC.DESKTOP_SHORTCUT_INSTALL, () => installLinuxDesktopShortcut())
   ipcMain.handle(IPC.DESKTOP_SHORTCUT_REMOVE, () => removeLinuxDesktopShortcut())
+
+  ipcMain.handle(IPC.WINDOW_MINIMIZE, () => {
+    mainWindow?.minimize()
+    return true
+  })
+  ipcMain.handle(IPC.WINDOW_TOGGLE_MAXIMIZE, () => {
+    if (!mainWindow) return false
+    if (mainWindow.isMaximized()) mainWindow.unmaximize()
+    else mainWindow.maximize()
+    return mainWindow.isMaximized()
+  })
+  ipcMain.handle(IPC.WINDOW_CLOSE, () => {
+    mainWindow?.close()
+    return true
+  })
+  ipcMain.handle(IPC.WINDOW_IS_MAXIMIZED, () => Boolean(mainWindow?.isMaximized()))
 }
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null)
+
   configService = new ConfigService()
   await configService.load()
 

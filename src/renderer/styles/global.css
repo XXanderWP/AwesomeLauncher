@@ -81,11 +81,123 @@ a {
   color: var(--accent);
 }
 
-.app-shell {
+.app-frame {
+  position: relative;
   height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr;
-  animation: fade-in 420ms ease both;
+  overflow: hidden;
+}
+
+.titlebar {
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  min-height: 32px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(42, 52, 70, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 60;
+  user-select: none;
+}
+
+.titlebar-drag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+}
+
+.titlebar-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titlebar-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 46px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-1);
+  padding: 0;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-0);
+  transform: none;
+}
+
+.titlebar-btn-close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+.app-shell {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.28) 45%, rgba(0, 0, 0, 0.18) 100%),
+    var(--app-wallpaper, none) center / cover no-repeat;
+}
+
+.app-shell--pre-reveal {
+  opacity: 0;
+}
+
+.app-shell--reveal {
+  opacity: 1;
+  transition: opacity 500ms ease;
+}
+
+.app-shell--no-blur .topbar,
+.app-shell--no-blur .panel,
+.app-shell--no-blur .account-card,
+.app-shell--no-blur .server-row,
+.app-shell--no-blur .boot-chrome {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-shell--no-blur .topbar {
+  background: rgba(18, 23, 34, 0.94);
+}
+
+.app-shell--no-blur .panel,
+.app-shell--no-blur .account-card {
+  background: rgba(18, 23, 34, 0.94);
+}
+
+.app-shell--no-blur .server-row {
+  background: rgba(26, 34, 48, 0.94);
+}
+
+.app-shell--no-blur .boot-chrome {
+  background: rgba(18, 23, 34, 0.94);
 }
 
 .topbar {
@@ -95,8 +207,9 @@ a {
   gap: 16px;
   padding: 14px 22px;
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-  background: rgba(12, 16, 24, 0.72);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  background: rgba(12, 16, 24, 0.42);
 }
 
 .brand {
@@ -176,7 +289,7 @@ a {
 }
 
 .btn.danger {
-  background: linear-gradient(135deg, #d95555, #b43d3d);
+  background: linear-gradient(135deg, #9a2c2c, #6e1a1a);
   color: white;
   border-color: transparent;
 }
@@ -189,6 +302,7 @@ a {
 
 .content {
   overflow: auto;
+  min-height: 0;
   padding: 22px;
 }
 
@@ -197,7 +311,25 @@ a {
   display: grid;
   place-items: center;
   padding: 22px;
-  animation: fade-in 420ms ease both;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.28) 45%, rgba(0, 0, 0, 0.18) 100%),
+    var(--app-wallpaper, none) center / cover no-repeat;
+  opacity: 1;
+  transition: opacity 500ms ease;
+}
+
+.boot-screen.boot-screen--leave {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-frame > .boot-screen {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
 }
 
 .boot-screen-inner {
@@ -213,6 +345,27 @@ a {
   object-fit: cover;
   box-shadow: var(--shadow);
   animation: brand-pulse 2.4s ease-in-out infinite;
+}
+
+.boot-media {
+  max-width: min(900px, 92vw);
+  max-height: min(800px, 70vh);
+  width: auto;
+  height: auto;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+
+.boot-chrome {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(12, 16, 24, 0.42);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
 }
 
 .boot-spinner {
@@ -243,12 +396,14 @@ a {
   grid-template-columns: 72px 1fr;
   gap: 16px;
   align-items: center;
-  background: rgba(18, 23, 34, 0.82);
+  background: rgba(18, 23, 34, 0.48);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow);
   animation: rise-in 420ms ease both;
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
 }
 
 .account-card-meta {
@@ -260,17 +415,6 @@ a {
   font-size: 1.2rem;
   font-weight: 650;
   line-height: 1.2;
-}
-
-.account-card-sub,
-.account-card-uuid {
-  margin-top: 4px;
-  font-size: 0.88rem;
-}
-
-.account-card-uuid {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
 }
 
 .ely-avatar {
@@ -305,12 +449,14 @@ a {
 }
 
 .panel {
-  background: rgba(18, 23, 34, 0.82);
+  background: rgba(18, 23, 34, 0.48);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
   box-shadow: var(--shadow);
   animation: rise-in 420ms ease both;
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
 }
 
 .panel h1,
@@ -333,11 +479,13 @@ a {
   padding: 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: rgba(26, 34, 48, 0.75);
+  background: rgba(26, 34, 48, 0.42);
   cursor: pointer;
   transition:
     border-color 160ms ease,
     transform 160ms ease;
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
 }
 
 .server-row .actions {
@@ -563,6 +711,15 @@ a {
   border: 1px solid rgba(224, 179, 77, 0.45);
 }
 
+.logs-hint {
+  margin: 0 0 12px;
+}
+
+.logs-export-status {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+}
+
 .warn-box.danger {
   color: #ffb4b4;
   background: rgba(232, 93, 93, 0.12);
@@ -744,6 +901,46 @@ a {
   align-self: center;
 }
 
+.mod-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgba(7, 9, 14, 0.55);
+  padding: 24px;
+}
+
+.mod-drop-overlay-card {
+  max-width: 420px;
+  text-align: center;
+  padding: 18px 22px;
+  border-radius: var(--radius);
+  border: 1px dashed rgba(61, 214, 198, 0.55);
+  background: var(--bg-1);
+  color: var(--text-0);
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  box-shadow: var(--shadow);
+}
+
+.modal-notice {
+  width: min(420px, 100%);
+  background: var(--bg-1);
+}
+
+.modal-mods-confirm {
+  width: min(640px, 100%);
+  background: var(--bg-1);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.mods-confirm-list {
+  margin-top: 10px;
+}
+
 .mod-desc,
 .mod-author {
   margin: 4px 0 0;
@@ -873,7 +1070,8 @@ a {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   padding: 12px;
-  height: calc(100vh - 180px);
+  height: calc(100vh - 260px);
+  min-height: 180px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -905,6 +1103,15 @@ a {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

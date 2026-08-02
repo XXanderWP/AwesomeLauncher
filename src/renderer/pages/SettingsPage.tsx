@@ -158,6 +158,52 @@ export function SettingsPage({
             <small>{t('settings.preserveConfigs.hint')}</small>
           </span>
         </label>
+
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.settings.launcher.skipLoadingGifs)}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                settings: {
+                  ...draft.settings,
+                  launcher: {
+                    ...draft.settings.launcher,
+                    skipLoadingGifs: e.target.checked
+                  }
+                }
+              })
+            }
+          />
+          <span>
+            <strong>{t('settings.skipLoadingGifs')}</strong>
+            <small>{t('settings.skipLoadingGifs.hint')}</small>
+          </span>
+        </label>
+
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.settings.launcher.disableUiBlur)}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                settings: {
+                  ...draft.settings,
+                  launcher: {
+                    ...draft.settings.launcher,
+                    disableUiBlur: e.target.checked
+                  }
+                }
+              })
+            }
+          />
+          <span>
+            <strong>{t('settings.disableUiBlur')}</strong>
+            <small>{t('settings.disableUiBlur.hint')}</small>
+          </span>
+        </label>
       </section>
 
       <section className="field">

@@ -7,6 +7,7 @@ interface Props {
   serverId: string
   serverName: string
   gameRunning: boolean
+  reloadToken?: number
   onClose: () => void
 }
 
@@ -90,6 +91,7 @@ export function InstanceModsModal({
   serverId,
   serverName,
   gameRunning,
+  reloadToken = 0,
   onClose
 }: Props): React.JSX.Element | null {
   const [payload, setPayload] = useState<ServerModsPayload | null>(null)
@@ -117,7 +119,7 @@ export function InstanceModsModal({
       setPayload(null)
       setError(null)
     }
-  }, [open, refresh])
+  }, [open, refresh, reloadToken])
 
   if (!open) return null
 

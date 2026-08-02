@@ -1,11 +1,22 @@
 import type { ElybyAccount } from './types'
-import { ELYBY_SKIN_URL } from './types'
+import { ELYBY_SKIN_URL, ELYBY_TEXTURES_URL } from './types'
 
 export const ELYBY_SITE_URL = 'https://ely.by'
 export const ELYBY_ACCOUNT_DASHBOARD_URL = 'https://account.ely.by/'
 
+/** Official skinsystem texture download URL (may 301 to ely.by/storage). */
 export function elybySkinUrl(username: string, cacheBust = Date.now()): string {
   return `${ELYBY_SKIN_URL}/${encodeURIComponent(username)}.png?v=${encodeURIComponent(String(cacheBust))}`
+}
+
+/** Official textures metadata URL (`/textures/{nickname}`). */
+export function elybyTexturesUrl(username: string): string {
+  return `${ELYBY_TEXTURES_URL}/${encodeURIComponent(username)}`
+}
+
+/** Prefer https for Ely.by storage links returned as http in textures JSON. */
+export function upgradeElybyAssetUrl(url: string): string {
+  return url.replace(/^http:\/\/(ely\.by|skinsystem\.ely\.by)\//i, 'https://$1/')
 }
 
 /**

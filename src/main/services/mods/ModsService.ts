@@ -3,11 +3,12 @@ import path from 'path'
 import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
 import { commonDirectory, instanceDirectory } from '../../utils/paths'
-import type { ModInfo, ServerModsPayload } from '../../../shared/types'
+import type { ModInfo, ModPreview, ServerModsPayload } from '../../../shared/types'
 import {
   disabledModPath,
   enabledModPath,
   isDisabledModFile,
+  isModArchiveFile,
   listModFilesInDirectory,
   readModMetadataFromJar
 } from './modMetadata'
@@ -36,6 +37,42 @@ export class ModsService {
       userMods: userMods.sort((a, b) => a.name.localeCompare(b.name)),
       commonMods: commonMods.sort((a, b) => a.name.localeCompare(b.name))
     }
+  }
+
+  async previewMod(sourcePath: string): Promise<ModPreview> {
+    const resolved = await this.assertInstallSource(sourcePath)
+    const meta = readModMetadataFromJar(resolved)
+    return {
+      sourcePath: resolved,
+      fileName: path.basename(resolved),
+      id: meta.id,
+      name: meta.name,
+      version: meta.version,
+      description: meta.description,
+      authors: meta.authors,
+      iconDataUrl: meta.iconDataUrl,
+      homepage: meta.homepage
+    }
+  }
+
+  async installUserMod(serverId: string, sourcePath: string): Promise<ModInfo> {
+    const resolved = await this.assertInstallSource(sourcePath)
+    const dataDir = this.config.getDataDirectory()
+    const modsDir = path.resolve(path.join(instanceDirectory(dataDir, serverId), 'mods'))
+    await fs.ensureDir(modsDir)
+
+    const fileName = path.basename(resolved)
+    const dest = path.join(modsDir, fileName)
+    const destDisabled = disabledModPath(dest)
+    if (path.resolve(resolved) === path.resolve(dest)) {
+      return this.toModInfo(dest, 'user')
+    }
+    if ((await fs.pathExists(dest)) || (await fs.pathExists(destDisabled))) {
+      throw new Error(`Mod already exists: ${fileName}`)
+    }
+
+    await fs.copy(resolved, dest)
+    return this.toModInfo(dest, 'user')
   }
 
   async setUserModEnabled(serverId: string, filePath: string, enabled: boolean): Promise<ModInfo> {
@@ -125,6 +162,25 @@ export class ModsService {
       iconDataUrl: meta.iconDataUrl,
       homepage: meta.homepage
     }
+  }
+
+  private async assertInstallSource(sourcePath: string): Promise<string> {
+    if (typeof sourcePath !== 'string' || !sourcePath) {
+      throw new Error('Invalid mod path')
+    }
+    const resolved = path.resolve(sourcePath)
+    if (!(await fs.pathExists(resolved))) {
+      throw new Error('Mod file not found')
+    }
+    const stat = await fs.stat(resolved)
+    if (!stat.isFile()) {
+      throw new Error('Mod path is not a file')
+    }
+    const fileName = path.basename(resolved)
+    if (!isModArchiveFile(fileName) || isDisabledModFile(fileName)) {
+      throw new Error('Unsupported mod file')
+    }
+    return resolved
   }
 
   private async assertUserModPath(serverId: string, filePath: string): Promise<string> {

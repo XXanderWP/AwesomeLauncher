@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { GameLogLine } from '@shared/types'
 import { t } from '../i18n'
 
@@ -12,12 +12,29 @@ interface Props {
 
 export function LogsPage({ logs, running, onClear, onBack, onKill }: Props): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
+  const [exportBusy, setExportBusy] = useState(false)
+  const [exportMessage, setExportMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [logs])
+
+  async function exportLogs(): Promise<void> {
+    setExportBusy(true)
+    setExportMessage(null)
+    try {
+      const result = await window.awesomeAPI.exportGameLogs()
+      if (result.saved) {
+        setExportMessage(t('logs.export.saved', result.path))
+      }
+    } catch (err) {
+      setExportMessage(err instanceof Error ? err.message : String(err))
+    } finally {
+      setExportBusy(false)
+    }
+  }
 
   return (
     <div className="panel">
@@ -35,6 +52,9 @@ export function LogsPage({ logs, running, onClear, onBack, onKill }: Props): Rea
           <button className="btn btn-sm" onClick={onBack}>
             {t('logs.back')}
           </button>
+          <button className="btn btn-sm" disabled={exportBusy} onClick={() => void exportLogs()}>
+            {exportBusy ? t('logs.export.busy') : t('logs.export')}
+          </button>
           <button className="btn btn-sm" onClick={() => void onClear()}>
             {t('logs.clear')}
           </button>
@@ -45,6 +65,11 @@ export function LogsPage({ logs, running, onClear, onBack, onKill }: Props): Rea
           )}
         </div>
       </div>
+
+      <div className="warn-box warning logs-hint">{t('logs.hint')}</div>
+
+      {exportMessage ? <p className="muted logs-export-status">{exportMessage}</p> : null}
+
       <div className="logs" ref={ref}>
         {logs.length === 0 ? (
           <div className="muted">{t('logs.empty')}</div>

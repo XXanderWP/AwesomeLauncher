@@ -39,6 +39,10 @@ export interface LauncherSettings {
   updateMode: UpdateMode
   allowPrerelease: boolean
   preservePlayerConfigs: boolean
+  /** Skip random loading GIFs and the extra splash delay. */
+  skipLoadingGifs: boolean
+  /** Disable backdrop blur on main UI panels. */
+  disableUiBlur: boolean
 }
 
 export interface AppConfig {
@@ -145,6 +149,18 @@ export interface ModInfo {
   homepage: string | null
 }
 
+export interface ModPreview {
+  sourcePath: string
+  fileName: string
+  id: string
+  name: string
+  version: string
+  description: string | null
+  authors: string[]
+  iconDataUrl: string | null
+  homepage: string | null
+}
+
 export interface ServerModsPayload {
   serverId: string
   userMods: ModInfo[]
@@ -155,6 +171,7 @@ export const DISTRO_URL = 'https://files.awesome-craft.ru/launcher/distribution.
 export const NEWS_RSS_URL = 'https://files.awesome-craft.ru/launcher/news.rss'
 export const ELYBY_AUTH_URL = 'https://authserver.ely.by'
 export const ELYBY_SKIN_URL = 'https://skinsystem.ely.by/skins'
+export const ELYBY_TEXTURES_URL = 'https://skinsystem.ely.by/textures'
 export const ELYBY_REGISTER_URL = 'https://account.ely.by/register'
 export const ELYBY_OAUTH_TOKEN_URL = 'https://account.ely.by/api/oauth2/v1/token'
 export const ELYBY_OAUTH_DEVICE_URL = 'https://account.ely.by/api/oauth2/v1/devicecode'
@@ -184,10 +201,19 @@ export const IPC = {
   MODS_LIST: 'mods:list',
   MODS_SET_ENABLED: 'mods:set-enabled',
   MODS_DELETE: 'mods:delete',
+  MODS_PREVIEW: 'mods:preview',
+  MODS_INSTALL: 'mods:install',
   GAME_STATE: 'game:state',
   GAME_LOGS: 'game:logs',
   GAME_KILL: 'game:kill',
   GAME_CLEAR_LOGS: 'game:clear-logs',
+  GAME_EXPORT_LOGS: 'game:export-logs',
+  ELYBY_FETCH_SKIN: 'elyby:fetch-skin',
+  WINDOW_MINIMIZE: 'window:minimize',
+  WINDOW_TOGGLE_MAXIMIZE: 'window:toggle-maximize',
+  WINDOW_CLOSE: 'window:close',
+  WINDOW_IS_MAXIMIZED: 'window:is-maximized',
+  EVENT_WINDOW_MAXIMIZED: 'event:window-maximized',
   UPDATE_STATUS: 'update:status',
   UPDATE_CHECK: 'update:check',
   UPDATE_DOWNLOAD: 'update:download',

@@ -45,7 +45,9 @@ function buildDefaultConfig(): AppConfig {
         language: 'system',
         updateMode: 'auto-download-manual-install',
         allowPrerelease: false,
-        preservePlayerConfigs: true
+        preservePlayerConfigs: true,
+        skipLoadingGifs: false,
+        disableUiBlur: false
       }
     },
     javaDefaults: buildDefaultJavaSettings(),
@@ -205,6 +207,12 @@ export class ConfigService {
     }
     if (!merged.cachedServerNames) {
       merged.cachedServerNames = {}
+    }
+    if (typeof merged.settings?.launcher?.skipLoadingGifs !== 'boolean') {
+      merged.settings.launcher.skipLoadingGifs = false
+    }
+    if (typeof merged.settings?.launcher?.disableUiBlur !== 'boolean') {
+      merged.settings.launcher.disableUiBlur = false
     }
     return merged
   }

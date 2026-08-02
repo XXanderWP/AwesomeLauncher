@@ -5,20 +5,35 @@ import type {
   GameLogLine,
   GameProcessState,
   LanguageSetting,
+  ModPreview,
   ProgressEvent,
   ServerOnlineStatus,
   UpdateStatus
 } from '@shared/types'
 import { resolveLanguage } from '@shared/i18nResolve'
 import { ELYBY_REGISTER_URL } from '@shared/types'
+import { resolveServerDisplayName } from '@shared/serverDisplayName'
 import { getCurrentLanguage, setLanguage, t } from './i18n'
 import logo from './assets/logo.png'
+import { getRandomBackgroundUrl } from './lib/backgroundMedia'
+import { getRandomLoadingMedia, LOADING_EXTRA_DELAY_MS, LOADING_FADE_MS } from './lib/gifMedia'
 import { LoginPage } from './pages/LoginPage'
 import { HomePage } from './pages/HomePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { LogsPage } from './pages/LogsPage'
+import { ModDropNoticeModal, ModInstallConfirmModal } from './components/ModDropModals'
+import { TitleBar } from './components/TitleBar'
 
 type View = 'home' | 'settings' | 'logs'
+
+function isDroppableModFileName(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower.endsWith('.jar') || lower.endsWith('.zip')
+}
+
+function dragHasFiles(event: React.DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types || []).includes('Files')
+}
 
 export function App(): React.JSX.Element {
   const [ready, setReady] = useState(false)
@@ -44,11 +59,60 @@ export function App(): React.JSX.Element {
   const [langTick, setLangTick] = useState(0)
   const [totalMemoryMb, setTotalMemoryMb] = useState(8192)
   const [platform, setPlatform] = useState<string>('')
+  const [modsServerId, setModsServerId] = useState<string | null>(null)
+  const [modsReloadToken, setModsReloadToken] = useState(0)
+  const [dropActive, setDropActive] = useState(false)
+  const [dropNotice, setDropNotice] = useState<'open-mods' | 'game-running' | null>(null)
+  const [pendingInstall, setPendingInstall] = useState<ModPreview[] | null>(null)
+  const [installBusy, setInstallBusy] = useState(false)
+  const [installError, setInstallError] = useState<string | null>(null)
+  const [showSplash, setShowSplash] = useState(true)
+  const [splashLeaving, setSplashLeaving] = useState(false)
+  const [bootMedia] = useState(() => getRandomLoadingMedia())
+  const [wallpaper] = useState(() => getRandomBackgroundUrl())
+  const dragDepth = useRef(0)
+
+  const shellStyle = wallpaper
+    ? ({ ['--app-wallpaper' as string]: `url(${wallpaper})` } as React.CSSProperties)
+    : undefined
+  const bootReady = Boolean(ready && config)
+  const skipLoadingGifs = config?.settings.launcher.skipLoadingGifs === true
+  const disableUiBlur = config?.settings.launcher.disableUiBlur === true
+  const splashMedia = !config || skipLoadingGifs ? null : bootMedia
+  const noBlurClass = disableUiBlur ? ' app-shell--no-blur' : ''
 
   const account = useMemo(() => {
     if (!config?.selectedAccountUuid) return null
     return config.accounts[config.selectedAccountUuid] ?? null
   }, [config])
+
+  const modsServer = servers.find((s) => s.id === modsServerId) || null
+  const modsServerName = modsServer
+    ? resolveServerDisplayName(
+        modsServer.name,
+        statuses[modsServer.id]?.description,
+        config?.cachedServerNames[modsServer.id]
+      )
+    : ''
+
+  useEffect(() => {
+    if (view !== 'home') {
+      setModsServerId(null)
+    }
+  }, [view])
+
+  useEffect(() => {
+    if (!bootReady || !config) return
+    const delay = config.settings.launcher.skipLoadingGifs ? 0 : LOADING_EXTRA_DELAY_MS
+    const hold = window.setTimeout(() => setSplashLeaving(true), delay)
+    return () => window.clearTimeout(hold)
+  }, [bootReady, config])
+
+  useEffect(() => {
+    if (!splashLeaving) return
+    const done = window.setTimeout(() => setShowSplash(false), LOADING_FADE_MS)
+    return () => window.clearTimeout(done)
+  }, [splashLeaving])
 
   useEffect(() => {
     let cancelled = false
@@ -166,38 +230,152 @@ export function App(): React.JSX.Element {
     setLangTick((x) => x + 1)
   }
 
-  if (!ready || !config) {
-    return (
-      <div className="boot-screen" role="status" aria-live="polite">
-        <div className="boot-screen-inner">
+  function resetDropState(): void {
+    dragDepth.current = 0
+    setDropActive(false)
+  }
+
+  function handleDragEnter(event: React.DragEvent<HTMLDivElement>): void {
+    if (!dragHasFiles(event)) return
+    event.preventDefault()
+    dragDepth.current += 1
+    setDropActive(true)
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>): void {
+    if (!dragHasFiles(event)) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>): void {
+    if (!dragHasFiles(event)) return
+    event.preventDefault()
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setDropActive(false)
+  }
+
+  async function handleDrop(event: React.DragEvent<HTMLDivElement>): Promise<void> {
+    event.preventDefault()
+    resetDropState()
+    const files = Array.from(event.dataTransfer.files || []).filter((file) =>
+      isDroppableModFileName(file.name)
+    )
+    if (files.length === 0) return
+
+    if (!modsServerId) {
+      setDropNotice('open-mods')
+      return
+    }
+    if (gameState.running) {
+      setDropNotice('game-running')
+      return
+    }
+
+    try {
+      const paths = files
+        .map((file) => window.awesomeAPI.getPathForFile(file))
+        .filter((filePath) => Boolean(filePath))
+      if (paths.length === 0) {
+        setError('Could not resolve dropped file path')
+        return
+      }
+      const previews = await Promise.all(
+        paths.map((filePath) => window.awesomeAPI.previewMod(filePath))
+      )
+      setInstallError(null)
+      setPendingInstall(previews)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function confirmInstall(): Promise<void> {
+    if (!pendingInstall || !modsServerId) return
+    setInstallBusy(true)
+    setInstallError(null)
+    try {
+      for (const mod of pendingInstall) {
+        await window.awesomeAPI.installMod(modsServerId, mod.sourcePath)
+      }
+      setPendingInstall(null)
+      setModsReloadToken((token) => token + 1)
+    } catch (err) {
+      setInstallError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setInstallBusy(false)
+    }
+  }
+
+  const splashOverlay = showSplash ? (
+    <div
+      key="boot-splash"
+      className={`boot-screen${splashLeaving ? ' boot-screen--leave' : ''}`}
+      style={shellStyle}
+      role="status"
+      aria-live="polite"
+      aria-hidden={splashLeaving}
+    >
+      <div className="boot-screen-inner">
+        {splashMedia?.type === 'video' ? (
+          <video
+            className="boot-media"
+            src={splashMedia.url}
+            autoPlay
+            loop
+            muted
+            playsInline
+            aria-hidden="true"
+          />
+        ) : splashMedia ? (
+          <img className="boot-media" src={splashMedia.url} alt="" />
+        ) : (
           <img className="boot-logo" src={logo} alt="AwesomeCraft" />
+        )}
+        <div className="boot-chrome">
           <div className="boot-spinner" aria-hidden="true" />
           <p className="boot-label">{t('common.loading')}</p>
         </div>
+      </div>
+    </div>
+  ) : null
+
+  const shellRevealClass =
+    (splashLeaving || !showSplash ? ' app-shell--reveal' : ' app-shell--pre-reveal') + noBlurClass
+
+  if (!bootReady || !config) {
+    return (
+      <div className="app-frame">
+        <TitleBar />
+        {splashOverlay}
       </div>
     )
   }
 
   if (!account) {
     return (
-      <div className="app-shell">
-        <header className="topbar">
-          <div className="brand">
-            <img src={logo} alt="AwesomeCraft" />
-            <div className="brand-text">
-              <strong>{t('app.name')}</strong>
-              <span>{t('app.tagline')}</span>
+      <div className="app-frame">
+        <TitleBar />
+        <div className={`app-shell${shellRevealClass}`} style={shellStyle}>
+          <header className="topbar">
+            <div className="brand">
+              <img src={logo} alt="AwesomeCraft" />
+              <div className="brand-text">
+                <strong>{t('app.name')}</strong>
+                <span>{t('app.tagline')}</span>
+              </div>
             </div>
-          </div>
-        </header>
-        <main className="content">
-          <LoginPage
-            onSuccess={async (next) => {
-              setConfig(next)
-              await applyLanguageFromConfig(next)
-            }}
-          />
-        </main>
+          </header>
+          <main className="content">
+            <LoginPage
+              onSuccess={async (next) => {
+                setConfig(next)
+                await applyLanguageFromConfig(next)
+              }}
+            />
+          </main>
+        </div>
+        {splashOverlay}
       </div>
     )
   }
@@ -206,7 +384,16 @@ export function App(): React.JSX.Element {
   void getCurrentLanguage
 
   return (
-    <div className="app-shell">
+    <div className="app-frame">
+      <TitleBar />
+      <div
+        className={`app-shell${shellRevealClass}`}
+        style={shellStyle}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={(event) => void handleDrop(event)}
+      >
       <header className="topbar">
         <div className="brand">
           <img src={logo} alt="AwesomeCraft" />
@@ -241,6 +428,9 @@ export function App(): React.JSX.Element {
             progress={progress}
             gameState={gameState}
             totalMemoryMb={totalMemoryMb}
+            modsServerId={modsServerId}
+            modsReloadToken={modsReloadToken}
+            onModsServerIdChange={setModsServerId}
             onSelectServer={async (serverId) => {
               const next = await window.awesomeAPI.updateConfig({ selectedServerId: serverId })
               setConfig(next)
@@ -305,8 +495,38 @@ export function App(): React.JSX.Element {
           />
         )}
       </main>
+
+      {dropActive ? (
+        <div className="mod-drop-overlay" aria-hidden>
+          <div className="mod-drop-overlay-card">
+            {modsServerId ? t('instance.mods.drop.overlay') : t('instance.mods.drop.openMods')}
+          </div>
+        </div>
+      ) : null}
+
+      {dropNotice ? (
+        <ModDropNoticeModal kind={dropNotice} onClose={() => setDropNotice(null)} />
+      ) : null}
+
+      {pendingInstall && modsServerId ? (
+        <ModInstallConfirmModal
+          serverName={modsServerName}
+          mods={pendingInstall}
+          busy={installBusy}
+          error={installError}
+          onCancel={() => {
+            if (installBusy) return
+            setPendingInstall(null)
+            setInstallError(null)
+          }}
+          onConfirm={() => void confirmInstall()}
+        />
+      ) : null}
+
       {/* Keep register URL referenced for tooling */}
       <span hidden>{ELYBY_REGISTER_URL}</span>
+    </div>
+      {splashOverlay}
     </div>
   )
 }

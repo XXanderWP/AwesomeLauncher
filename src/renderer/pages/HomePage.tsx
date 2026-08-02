@@ -21,6 +21,9 @@ interface Props {
   progress: ProgressEvent
   gameState: GameProcessState
   totalMemoryMb: number
+  modsServerId: string | null
+  modsReloadToken: number
+  onModsServerIdChange: (serverId: string | null) => void
   onSelectServer: (serverId: string) => void | Promise<void>
   onLaunch: (serverId: string) => void | Promise<void>
   onVerify: (serverId: string) => void | Promise<void>
@@ -38,6 +41,9 @@ export function HomePage({
   progress,
   gameState,
   totalMemoryMb,
+  modsServerId,
+  modsReloadToken,
+  onModsServerIdChange,
   onSelectServer,
   onLaunch,
   onVerify,
@@ -49,7 +55,6 @@ export function HomePage({
   const selectedId = config.selectedServerId || servers[0]?.id
   const busy = progress.phase !== 'idle' && progress.phase !== 'launch'
   const [javaServerId, setJavaServerId] = useState<string | null>(null)
-  const [modsServerId, setModsServerId] = useState<string | null>(null)
   const javaServer = servers.find((s) => s.id === javaServerId) || null
   const modsServer = servers.find((s) => s.id === modsServerId) || null
 
@@ -145,7 +150,7 @@ export function HomePage({
                       className="btn btn-sm"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setModsServerId(server.id)
+                        onModsServerIdChange(server.id)
                       }}
                     >
                       {t('instance.mods')}
@@ -233,7 +238,8 @@ export function HomePage({
             : ''
         }
         gameRunning={gameState.running}
-        onClose={() => setModsServerId(null)}
+        reloadToken={modsReloadToken}
+        onClose={() => onModsServerIdChange(null)}
       />
     </div>
   )
