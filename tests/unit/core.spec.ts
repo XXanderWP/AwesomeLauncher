@@ -15,7 +15,12 @@ import {
   restorePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
 import { validateRamLimits, clampRamMb } from '../../src/shared/ramValidation'
-import { elybySkinUrl, elybyProfileUrl, shortUuid } from '../../src/shared/elybyProfile'
+import {
+  elybySkinUrl,
+  elybyProfileUrl,
+  parseElyAccountId,
+  shortUuid
+} from '../../src/shared/elybyProfile'
 
 describe('preservePaths', () => {
   it('normalizes separators', () => {
@@ -122,8 +127,20 @@ describe('elybyAuth helpers', () => {
       accessToken: 'token',
       username: 'steve@ely.by',
       uuid: '01234567-89ab-cdef-0123-456789abcdef',
-      displayName: 'Steve'
+      displayName: 'Steve',
+      elyId: undefined
     })
+  })
+
+  it('keeps numeric ely account id from auth user', () => {
+    const account = accountFromAuthResponse({
+      accessToken: 'token',
+      clientToken: 'client',
+      selectedProfile: { id: '0123456789abcdef0123456789abcdef', name: 'XanderWP' },
+      user: { id: '3575339', username: 'XanderWP' }
+    })
+    expect(account.elyId).toBe(3575339)
+    expect(account.username).toBe('XanderWP')
   })
 })
 
@@ -153,9 +170,18 @@ describe('ramValidation', () => {
 describe('elybyProfile helpers', () => {
   it('builds skin and profile urls', () => {
     expect(elybySkinUrl('Steve', 1)).toContain('/skins/Steve.png')
-    expect(elybyProfileUrl({ username: 'steve', displayName: 'Steve' })).toBe(
-      'https://ely.by/Steve'
+    expect(elybyProfileUrl({ username: 'XanderWP', displayName: 'XanderWP', elyId: 3575339 })).toBe(
+      'https://ely.by/u3575339'
     )
+    expect(elybyProfileUrl({ username: 'XanderWP', displayName: 'XanderWP' })).toBe(
+      'https://account.ely.by/'
+    )
+  })
+
+  it('parses numeric ely account ids', () => {
+    expect(parseElyAccountId(3575339)).toBe(3575339)
+    expect(parseElyAccountId('3575339')).toBe(3575339)
+    expect(parseElyAccountId('abc')).toBeUndefined()
   })
 
   it('shortens uuids', () => {

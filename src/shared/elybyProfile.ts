@@ -8,9 +8,27 @@ export function elybySkinUrl(username: string, cacheBust = Date.now()): string {
   return `${ELYBY_SKIN_URL}/${encodeURIComponent(username)}.png?v=${encodeURIComponent(String(cacheBust))}`
 }
 
-export function elybyProfileUrl(account: Pick<ElybyAccount, 'username' | 'displayName'>): string {
-  const name = (account.displayName || account.username || '').trim()
-  return `${ELYBY_SITE_URL}/${encodeURIComponent(name)}`
+/**
+ * Public profile page. Prefer numeric site id (`/u3575339`); fall back to account dashboard.
+ */
+export function elybyProfileUrl(
+  account: Pick<ElybyAccount, 'elyId' | 'username' | 'displayName'>
+): string {
+  const id = account.elyId
+  if (typeof id === 'number' && Number.isFinite(id) && id > 0) {
+    return `${ELYBY_SITE_URL}/u${Math.trunc(id)}`
+  }
+  return ELYBY_ACCOUNT_DASHBOARD_URL
+}
+
+export function parseElyAccountId(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value)
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    return Number(value.trim())
+  }
+  return undefined
 }
 
 export function shortUuid(uuid: string): string {

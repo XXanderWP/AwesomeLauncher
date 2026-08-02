@@ -20,7 +20,10 @@ Runs after successful CI on `main` (workflow_run) or manual dispatch.
 
 - Windows: `AwesomeCraftLauncher-setup-{version}.exe`
 - Linux: `AwesomeCraftLauncher-setup-{version}.AppImage`
-- macOS: `AwesomeCraftLauncher-setup-{version}-{arch}.dmg`
+- macOS DMG: `AwesomeCraftLauncher-setup-{version}-{arch}.dmg` (manual install)
+- macOS ZIP: `AwesomeCraftLauncher-setup-{version}-{arch}.zip` (required by `electron-updater` / Squirrel.Mac)
+
+macOS packaging must include **both** `dmg` and `zip` targets. DMG-only releases make `latest-mac.yml` list only `.dmg` files and auto-update fails with `ZIP file not provided`.
 
 ## macOS quarantine
 

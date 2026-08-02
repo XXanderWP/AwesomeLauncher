@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import got from 'got'
 import { ELYBY_AUTH_URL } from '../../../shared/types'
 import type { ElybyAccount } from '../../../shared/types'
+import { parseElyAccountId } from '../../../shared/elybyProfile'
 
 export interface ElybyAuthResponse {
   accessToken: string
@@ -126,6 +127,7 @@ export function accountFromAuthResponse(body: ElybyAuthResponse): ElybyAccount {
     accessToken: body.accessToken,
     username: body.user?.username || profile.name,
     uuid: normalizeProfileUuid(profile.id),
-    displayName: profile.name
+    displayName: profile.name,
+    elyId: parseElyAccountId(body.user?.id)
   }
 }

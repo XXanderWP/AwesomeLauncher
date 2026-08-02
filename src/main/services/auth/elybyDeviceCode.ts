@@ -7,6 +7,7 @@ import {
 } from '../../../shared/types'
 import type { ElybyAccount } from '../../../shared/types'
 import { normalizeProfileUuid } from './elybyAuth'
+import { parseElyAccountId } from '../../../shared/elybyProfile'
 
 export interface DeviceCodeStart {
   deviceCode: string
@@ -123,13 +124,7 @@ export async function pollDeviceCodeLogin(
 }
 
 async function accountFromOAuthToken(accessToken: string): Promise<ElybyAccount> {
-  const info = await got
-    .get(ELYBY_ACCOUNT_INFO_URL, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      responseType: 'json',
-      timeout: { request: 30000 }
-    })
-    .json<AccountInfo>()
+  const info = await fetchElyAccountInfo(accessToken)
 
   if (!info?.uuid || !info?.username) {
     throw new Error('Ely.by account info response was incomplete')
@@ -140,6 +135,41 @@ async function accountFromOAuthToken(accessToken: string): Promise<ElybyAccount>
     accessToken,
     username: info.username,
     uuid: normalizeProfileUuid(info.uuid),
-    displayName: info.username
+    displayName: info.username,
+    elyId: parseElyAccountId(info.id)
+  }
+}
+
+export async function fetchElyAccountInfo(accessToken: string): Promise<AccountInfo | null> {
+  try {
+    const info = await got
+      .get(ELYBY_ACCOUNT_INFO_URL, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        responseType: 'json',
+        throwHttpErrors: false,
+        timeout: { request: 30000 }
+      })
+      .json<AccountInfo>()
+    if (!info?.uuid || !info?.username) return null
+    return info
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fill missing `elyId` for accounts created before profile-id support, when the
+ * access token still authorizes the account-info API (OAuth device-code tokens).
+ */
+export async function enrichAccountWithElyId(account: ElybyAccount): Promise<ElybyAccount> {
+  if (account.elyId != null && account.elyId > 0) return account
+  const info = await fetchElyAccountInfo(account.accessToken)
+  const elyId = parseElyAccountId(info?.id)
+  if (!elyId) return account
+  return {
+    ...account,
+    elyId,
+    username: info?.username || account.username,
+    displayName: account.displayName || info?.username || account.username
   }
 }

@@ -9,6 +9,8 @@ export interface ElybyAccount {
   username: string
   uuid: string
   displayName: string
+  /** Numeric Ely.by site account id used in https://ely.by/u{id}. */
+  elyId?: number
 }
 
 export interface GameSettings {

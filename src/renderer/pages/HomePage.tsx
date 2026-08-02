@@ -93,6 +93,9 @@ export function HomePage({
                   <img src={server.icon || ''} alt="" />
                   <div className="server-meta">
                     <h3>{displayName}</h3>
+                    {displayName !== server.name ? (
+                      <p className="server-pack">{server.name}</p>
+                    ) : null}
                     <p>
                       {server.minecraftVersion} · v{server.version} · {server.address}
                     </p>
