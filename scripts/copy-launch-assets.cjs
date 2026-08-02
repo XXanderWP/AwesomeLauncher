@@ -1,12 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const FILES = [
-  'processbuilder.legacy.js',
-  'launchBridge.js',
-  'nativeExtract.js',
-  'launchEnv.js'
-]
+const FILES = ['processbuilder.legacy.js', 'launchBridge.js', 'nativeExtract.js', 'launchEnv.js']
 
 function copyLaunchAssets(root = path.join(__dirname, '..')) {
   const srcDir = path.join(root, 'src', 'main', 'services', 'launch')
