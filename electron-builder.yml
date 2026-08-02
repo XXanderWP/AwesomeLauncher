@@ -1,6 +1,7 @@
 appId: ru.awesomecraft.launcher
 productName: AwesomeCraftLauncher
-artifactName: ${productName}-setup-${version}.${ext}
+# Stable download names (version is in the GitHub release tag, not the filename).
+artifactName: AwesomeLauncher.${ext}
 copyright: Copyright © 2026 AwesomeCraft
 
 asar: true
@@ -49,7 +50,7 @@ mac:
       arch:
         - x64
         - arm64
-  artifactName: ${productName}-setup-${version}-${arch}.${ext}
+  artifactName: AwesomeLauncher-${arch}.${ext}
   category: public.app-category.games
   icon: build/icon.png
   darkModeSupport: true

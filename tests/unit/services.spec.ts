@@ -151,11 +151,11 @@ describe('macManualUpdate helpers', () => {
   it('picks the arch-specific DMG asset', () => {
     const assets = [
       {
-        name: 'AwesomeCraftLauncher-setup-1.1.2-x64.dmg',
+        name: 'AwesomeLauncher-x64.dmg',
         browser_download_url: 'https://example.com/x64.dmg'
       },
       {
-        name: 'AwesomeCraftLauncher-setup-1.1.2-arm64.dmg',
+        name: 'AwesomeLauncher-arm64.dmg',
         browser_download_url: 'https://example.com/arm64.dmg'
       }
     ]

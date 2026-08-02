@@ -18,9 +18,11 @@ Runs after successful CI on `main` (workflow_run) or manual dispatch.
 
 ## Artifacts
 
-- Windows: `AwesomeCraftLauncher-setup-{version}.exe`
-- Linux: `AwesomeCraftLauncher-setup-{version}.AppImage`
-- macOS DMG: `AwesomeCraftLauncher-setup-{version}-{arch}.dmg` (manual install + in-app privileged updater)
+Stable filenames (version lives in the GitHub release tag / URL):
+
+- Windows: `AwesomeLauncher.exe`
+- Linux: `AwesomeLauncher.AppImage`
+- macOS DMG: `AwesomeLauncher-{arch}.dmg` (manual install + in-app privileged updater)
 
 Do **not** rely on macOS ZIP / Squirrel.Mac: the app is unsigned, so `electron-updater` fails code-signature validation. macOS packaging is DMG-only.
 

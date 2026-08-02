@@ -4,6 +4,7 @@ import got from 'got'
 import os from 'os'
 import path from 'path'
 import { promisify } from 'util'
+import { macReleaseArtifactName } from '../../../shared/releaseArtifacts'
 
 const execFileAsync = promisify(execFile)
 
@@ -70,21 +71,20 @@ export function resolveMacAppBundlePath(execPath: string = process.execPath): st
 
 export function pickMacDmgAsset(
   assets: GitHubReleaseAsset[],
-  version: string,
+  _version: string,
   arch: 'arm64' | 'x64'
 ): GitHubReleaseAsset | null {
-  const expected = `AwesomeCraftLauncher-setup-${version}-${arch}.dmg`
+  const expected = macReleaseArtifactName(arch, 'dmg')
   const exact = assets.find((asset) => asset.name === expected)
   if (exact) return exact
   return (
     assets.find(
       (asset) =>
         asset.name.toLowerCase().endsWith('.dmg') &&
-        asset.name.includes(`-${arch}.`) &&
-        asset.name.includes(version)
+        (asset.name === expected || asset.name.includes(`-${arch}.`))
     ) ||
     assets.find(
-      (asset) => asset.name.toLowerCase().endsWith('.dmg') && asset.name.includes(`-${arch}.`)
+      (asset) => asset.name.toLowerCase().endsWith('.dmg') && asset.name.includes(`-${arch}`)
     ) ||
     null
   )
