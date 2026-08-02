@@ -19,6 +19,11 @@
 
 ## Local data layout
 
+Default `dataDirectory`:
+
+- Linux / macOS: `~/.awesomelauncher`
+- Windows: `%APPDATA%\.awesomelauncher`
+
 ```
 {dataDirectory}/
   common/        # libraries, assets, versions, mod store

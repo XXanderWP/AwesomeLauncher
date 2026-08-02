@@ -135,7 +135,7 @@ export const ELYBY_ACCOUNT_INFO_URL = 'https://account.ely.by/api/account/v1/inf
 export const ELYBY_DEVICE_VERIFY_URL = 'https://account.ely.by/code'
 /** Default public Ely.by OAuth client id (community launchers). */
 export const ELYBY_OAUTH_CLIENT_ID = 'ely'
-export const DEFAULT_DATA_DIR_NAME = '.awesomecraftlauncher'
+export const DEFAULT_DATA_DIR_NAME = '.awesomelauncher'
 
 export const IPC = {
   CONFIG_GET: 'config:get',
