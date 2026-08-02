@@ -2,10 +2,16 @@
  * Flatten Minecraft chat / MOTD components into plain text.
  */
 export function extractMotdText(input: unknown): string | null {
+  const raw = extractMotdRaw(input)
+  if (raw == null) return null
+  const trimmed = stripMotdFormatting(raw).trim()
+  return trimmed || null
+}
+
+function extractMotdRaw(input: unknown): string | null {
   if (input == null) return null
   if (typeof input === 'string') {
-    const trimmed = stripMotdFormatting(input).trim()
-    return trimmed || null
+    return input
   }
   if (typeof input !== 'object') return null
 
@@ -25,20 +31,20 @@ export function extractMotdText(input: unknown): string | null {
 
   if (Array.isArray(node.with)) {
     for (const child of node.with) {
-      const nested = extractMotdText(child)
-      if (nested) parts.push(nested)
+      const nested = extractMotdRaw(child)
+      if (nested != null) parts.push(nested)
     }
   }
 
   if (Array.isArray(node.extra)) {
     for (const child of node.extra) {
-      const nested = extractMotdText(child)
-      if (nested) parts.push(nested)
+      const nested = extractMotdRaw(child)
+      if (nested != null) parts.push(nested)
     }
   }
 
-  const joined = stripMotdFormatting(parts.join('')).trim()
-  return joined || null
+  if (parts.length === 0) return null
+  return parts.join('')
 }
 
 /** Remove classic § color/format codes from MOTD text. */
