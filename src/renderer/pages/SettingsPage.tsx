@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppConfig, LanguageSetting, UpdateStatus } from '@shared/types'
 import { getDefaultJvmOptions } from '@shared/javaDefaults'
 import { validateRamLimits } from '@shared/ramValidation'
@@ -18,6 +18,8 @@ interface Props {
   updateStatus: UpdateStatus | null
   totalMemoryMb: number
   platform: NodeJS.Platform | string
+  scrollToSection?: 'updates' | null
+  onScrollHandled?: () => void
   onChange: (partial: Record<string, unknown>) => void | Promise<void>
   onBrowseDataDir: () => void | Promise<void>
   onPreviewLanguage: (language: LanguageSetting) => void | Promise<void>
@@ -28,6 +30,8 @@ export function SettingsPage({
   updateStatus,
   totalMemoryMb,
   platform,
+  scrollToSection = null,
+  onScrollHandled,
   onChange,
   onBrowseDataDir,
   onPreviewLanguage
@@ -40,10 +44,24 @@ export function SettingsPage({
   const [shortcutBusy, setShortcutBusy] = useState(false)
   const [shortcutError, setShortcutError] = useState<string | null>(null)
   const isMac = platform === 'darwin'
+  const onScrollHandledRef = useRef(onScrollHandled)
+  onScrollHandledRef.current = onScrollHandled
 
   useEffect(() => {
     setDraft(config)
   }, [config])
+
+  useEffect(() => {
+    if (scrollToSection !== 'updates') return
+    const timer = window.setTimeout(() => {
+      document.getElementById('settings-updates')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      })
+      onScrollHandledRef.current?.()
+    }, 50)
+    return () => window.clearTimeout(timer)
+  }, [scrollToSection])
 
   useEffect(() => {
     if (!isLinux) return
@@ -409,7 +427,7 @@ export function SettingsPage({
         </section>
       )}
 
-      <section className="field">
+      <section className="field" id="settings-updates">
         <h2>{t('settings.updates')}</h2>
         {isMac ? (
           <p className="hint">{t('settings.macUpdateHint')}</p>

@@ -37,18 +37,10 @@ export function LogsPage({ logs, running, onClear, onBack, onKill }: Props): Rea
   }
 
   return (
-    <div className="panel">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 12,
-          flexWrap: 'wrap'
-        }}
-      >
+    <div className="panel logs-page">
+      <div className="logs-toolbar">
         <h1>{t('logs.title')}</h1>
-        <div className="actions actions-compact" style={{ marginTop: 0 }}>
+        <div className="actions actions-compact">
           <button className="btn btn-sm" onClick={onBack}>
             {t('logs.back')}
           </button>

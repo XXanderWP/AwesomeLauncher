@@ -5,7 +5,8 @@ import type {
   ElybyAccount,
   GameProcessState,
   ProgressEvent,
-  ServerOnlineStatus
+  ServerOnlineStatus,
+  UpdateStatus
 } from '@shared/types'
 import { resolveServerDisplayName } from '@shared/serverDisplayName'
 import { t } from '../i18n'
@@ -30,7 +31,9 @@ interface Props {
   onKill: () => void | Promise<void>
   onLogout: () => void | Promise<void>
   onOpenLogs: () => void
+  onOpenUpdateSettings: () => void
   onConfigChange: (config: AppConfig) => void | Promise<void>
+  updateStatus: UpdateStatus | null
 }
 
 export function HomePage({
@@ -50,7 +53,9 @@ export function HomePage({
   onKill,
   onLogout,
   onOpenLogs,
-  onConfigChange
+  onOpenUpdateSettings,
+  onConfigChange,
+  updateStatus
 }: Props): React.JSX.Element {
   const selectedId = config.selectedServerId || servers[0]?.id
   const busy = progress.phase !== 'idle' && progress.phase !== 'launch'
@@ -68,8 +73,23 @@ export function HomePage({
     await window.awesomeAPI.deleteInstance(serverId)
   }
 
+  const updateVersion = updateStatus?.info?.version
+  const updateBannerText = updateVersion
+    ? t('home.updateAvailable.version', updateVersion)
+    : t('home.updateAvailable')
+
   return (
     <div className="home-layout">
+      {updateStatus?.available && (
+        <button
+          type="button"
+          className="warn-box warning"
+          onClick={onOpenUpdateSettings}
+        >
+          {updateBannerText}
+        </button>
+      )}
+
       <ElybyAccountCard account={account} onLogout={onLogout} />
 
       <div className="panel">

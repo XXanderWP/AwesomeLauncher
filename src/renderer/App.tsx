@@ -55,6 +55,7 @@ export function App(): React.JSX.Element {
   })
   const [logs, setLogs] = useState<GameLogLine[]>([])
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [settingsScrollTo, setSettingsScrollTo] = useState<'updates' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [langTick, setLangTick] = useState(0)
   const [totalMemoryMb, setTotalMemoryMb] = useState(8192)
@@ -408,7 +409,10 @@ export function App(): React.JSX.Element {
             </button>
             <button
               className={view === 'settings' ? 'active' : ''}
-              onClick={() => setView('settings')}
+              onClick={() => {
+                setSettingsScrollTo(null)
+                setView('settings')
+              }}
             >
               {t('nav.settings')}
             </button>
@@ -459,7 +463,12 @@ export function App(): React.JSX.Element {
                 setConfig(next)
               }}
               onOpenLogs={() => setView('logs')}
+              onOpenUpdateSettings={() => {
+                setSettingsScrollTo('updates')
+                setView('settings')
+              }}
               onConfigChange={async (next) => setConfig(next)}
+              updateStatus={updateStatus}
             />
           )}
           {view === 'settings' && (
@@ -468,6 +477,8 @@ export function App(): React.JSX.Element {
               updateStatus={updateStatus}
               totalMemoryMb={totalMemoryMb}
               platform={platform}
+              scrollToSection={settingsScrollTo}
+              onScrollHandled={() => setSettingsScrollTo(null)}
               onChange={async (partial) => {
                 const next = await window.awesomeAPI.updateConfig(partial)
                 setConfig(next)
