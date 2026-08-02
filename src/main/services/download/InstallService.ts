@@ -13,7 +13,12 @@ import { IPC } from '../../../shared/types'
 import { commonDirectory, instanceDirectory, instancesDirectory } from '../../utils/paths'
 import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
-import { backupPreservedFiles, restorePreservedFiles } from './preserveBackup'
+import {
+  backupPreservedFiles,
+  removeUnbackedUserMods,
+  restorePreservedFiles
+} from './preserveBackup'
+import { finalizeFileSync } from './fileSync'
 
 export interface InstallResult {
   versionData: any
@@ -95,9 +100,12 @@ export class InstallService {
     return exec
   }
 
-  async verifyAndRepair(
-    serverId: string
-  ): Promise<{ invalidFileCount: number; restoredConfigs: number }> {
+  async verifyAndRepair(serverId: string): Promise<{
+    invalidFileCount: number
+    restoredConfigs: number
+    orphansRemoved: number
+    trackedCount: number
+  }> {
     const { raw: distro } = await this.distro.refresh()
     const server =
       distro.getServerById?.(serverId) ||
@@ -158,12 +166,26 @@ export class InstallService {
       }
 
       const restoredConfigs = await restorePreservedFiles(backup)
+      await removeUnbackedUserMods(instanceDir, backup)
+
+      const syncStats = await finalizeFileSync({
+        dataDirectory: dataDir,
+        serverId,
+        server,
+        protectedRestored: restoredConfigs
+      })
+
       this.emitProgress({
         phase: 'idle',
         percent: 100,
         message: 'Files ready'
       })
-      return { invalidFileCount, restoredConfigs }
+      return {
+        invalidFileCount,
+        restoredConfigs,
+        orphansRemoved: syncStats.orphansRemoved,
+        trackedCount: syncStats.trackedCount
+      }
     } finally {
       fullRepair.destroyReceiver()
     }

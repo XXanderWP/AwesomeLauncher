@@ -14,22 +14,29 @@ Current server example:
 ## Install pipeline
 
 1. Ensure Java matching server `javaOptions.supported` (download Adoptium/OpenJDK via helios-core if needed)
-2. `FullRepair.verifyFiles` + `download` for missing/corrupt assets
-3. Restore player-mutable files from backup (see below)
-4. Load vanilla + Fabric version JSON
-5. Spawn ProcessBuilder
+2. Backup protected local instance files (`config/**`, `options*.txt`, user `mods/**`) when `preservePlayerConfigs` is enabled
+3. `FullRepair.verifyFiles` + `download` — missing files are always fetched; changed files in non-config folders are updated
+4. Restore protected backups; purge any new jars that FullRepair dropped into instance `mods/`
+5. Orphan cleanup using persisted server file index (`{dataDir}/sync-index/{serverId}.json`)
+6. Save the current distribution file list as the tracked set
+7. Load vanilla + Fabric version JSON and spawn ProcessBuilder
 
-## Config preservation (critical)
+## File sync rules
 
-Old Helios-based launcher overwrote File modules whenever MD5 differed, resetting player configs every launch.
+| Rule | Behavior |
+|------|----------|
+| Missing locally | Always download |
+| Removed from remote | Delete locally **only if** the path was previously tracked as server-managed |
+| Never tracked locally | Leave alone (player-added files stay) |
+| `logs/`, `saves/` | Full immunity — sync never walks, restores, or deletes |
+| Instance `mods/` | User mods — never synced; protect + purge forced installs |
+| `config/` | Download if missing; **do not** overwrite when already present |
+| Other folders (`resourcepacks`, `shaderpacks`, `datapacks`, `common/mods`, …) | Re-download when remote hash changes |
+| `options.txt`, `optionsshaders.txt`, `optionshaders.txt` | Never overwrite when present |
 
-New launcher:
+Tracked paths live in `sync-index/{serverId}.json` under the game data directory. On the first run after this feature, the index is created without deleting anything (no prior baseline).
 
-- Before repair, backup mutable paths if `preservePlayerConfigs` is enabled (default true)
-- After repair, restore backup
-- Mutable paths include `options.txt`, `servers.dat*`, `config/**` (except forced pack defaults like `config/yosbr/`), minimap data, saves, screenshots, logs
-
-Integrity verification still validates mods/libraries/assets.
+Integrity verification still validates mods/libraries/assets under `common/`.
 
 ## Game session UX
 
