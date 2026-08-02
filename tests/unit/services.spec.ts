@@ -22,6 +22,7 @@ import {
   linuxIconFilePath,
   resolveLinuxExecPath
 } from '../../src/main/services/desktop/linuxDesktopShortcut'
+import {
   buildMacPrivilegedUpdateScript,
   compareVersions,
   macArchLabel,
