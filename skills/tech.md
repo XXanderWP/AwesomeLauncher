@@ -37,4 +37,5 @@ MIT (`LICENSE`, also declared in `package.json`)
 - Compact `btn-sm` for logout / instance actions / running-game controls
 - Shared Java defaults in Settings; per-server overrides from Home
 - RAM inputs use slider + numeric field with validation against system memory
+- Linux Settings can install a user `.desktop` shortcut + icon for KDE/GNOME app menus
 - macOS DMG must include `How to remove quarantine.txt` via `dmg.contents` (not only app extraFiles)

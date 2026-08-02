@@ -43,6 +43,7 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [langTick, setLangTick] = useState(0)
   const [totalMemoryMb, setTotalMemoryMb] = useState(8192)
+  const [platform, setPlatform] = useState('')
 
   const account = useMemo(() => {
     if (!config?.selectedAccountUuid) return null
@@ -53,7 +54,7 @@ export function App(): React.JSX.Element {
     let cancelled = false
     async function boot(): Promise<void> {
       try {
-        const [cfg, ver, locale, distro, gState, gLogs, uStatus, memory] = await Promise.all([
+        const [cfg, ver, locale, distro, gState, gLogs, uStatus, memory, plat] = await Promise.all([
           window.awesomeAPI.getConfig(),
           window.awesomeAPI.getVersion(),
           window.awesomeAPI.getSystemLocale(),
@@ -61,7 +62,8 @@ export function App(): React.JSX.Element {
           window.awesomeAPI.getGameState(),
           window.awesomeAPI.getGameLogs(),
           window.awesomeAPI.getUpdateStatus(),
-          window.awesomeAPI.getSystemMemory()
+          window.awesomeAPI.getSystemMemory(),
+          window.awesomeAPI.getPlatform()
         ])
         if (cancelled) return
         const lang = resolveLanguage(cfg.settings.launcher.language, locale)
@@ -73,6 +75,7 @@ export function App(): React.JSX.Element {
         setLogs(gLogs)
         setUpdateStatus(uStatus)
         setTotalMemoryMb(memory.totalMb)
+        setPlatform(plat)
         setLangTick((x) => x + 1)
         setReady(true)
 
@@ -270,6 +273,7 @@ export function App(): React.JSX.Element {
             config={config}
             updateStatus={updateStatus}
             totalMemoryMb={totalMemoryMb}
+            platform={platform}
             onChange={async (partial) => {
               const next = await window.awesomeAPI.updateConfig(partial)
               setConfig(next)

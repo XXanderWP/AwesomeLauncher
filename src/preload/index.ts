@@ -25,6 +25,14 @@ export type DevicePollPayload =
   | { status: 'denied'; message: string }
   | { status: 'success'; account: unknown; refreshToken?: string; config: AppConfig }
 
+export interface DesktopShortcutStatus {
+  supported: boolean
+  installed: boolean
+  desktopPath: string
+  iconPath: string
+  execPath: string
+}
+
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.APP_VERSION),
   getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke(IPC.APP_PLATFORM),
@@ -74,6 +82,13 @@ const api = {
   checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
   downloadUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_DOWNLOAD),
   installUpdate: (): Promise<boolean> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+
+  getDesktopShortcutStatus: (): Promise<DesktopShortcutStatus> =>
+    ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_STATUS),
+  installDesktopShortcut: (): Promise<DesktopShortcutStatus> =>
+    ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_INSTALL),
+  removeDesktopShortcut: (): Promise<DesktopShortcutStatus> =>
+    ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_REMOVE),
 
   onProgress: (cb: (event: ProgressEvent) => void): (() => void) => {
     const listener = (_: Electron.IpcRendererEvent, payload: ProgressEvent): void => cb(payload)

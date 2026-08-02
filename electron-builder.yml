@@ -25,6 +25,8 @@ extraResources:
     to: mac
     filter:
       - '**/*'
+  - from: build/icon.png
+    to: icon.png
 
 win:
   target:

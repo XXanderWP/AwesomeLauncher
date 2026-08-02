@@ -19,6 +19,11 @@ import {
   enrichAccountWithElyId
 } from './services/auth/elybyDeviceCode'
 import { fetchServerStatus } from './services/server-status/serverStatus'
+import {
+  getLinuxShortcutStatus,
+  installLinuxDesktopShortcut,
+  removeLinuxDesktopShortcut
+} from './services/desktop/linuxDesktopShortcut'
 import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
 import { bytesToMb } from '../shared/ramValidation'
@@ -227,6 +232,10 @@ function registerIpc(): void {
     updaterService.install()
     return true
   })
+
+  ipcMain.handle(IPC.DESKTOP_SHORTCUT_STATUS, () => getLinuxShortcutStatus())
+  ipcMain.handle(IPC.DESKTOP_SHORTCUT_INSTALL, () => installLinuxDesktopShortcut())
+  ipcMain.handle(IPC.DESKTOP_SHORTCUT_REMOVE, () => removeLinuxDesktopShortcut())
 }
 
 app.whenReady().then(async () => {

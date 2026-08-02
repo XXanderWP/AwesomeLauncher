@@ -21,6 +21,7 @@ import {
   parseElyAccountId,
   shortUuid
 } from '../../src/shared/elybyProfile'
+import { buildLinuxDesktopEntry, quoteDesktopExec } from '../../src/shared/linuxDesktop'
 
 describe('preservePaths', () => {
   it('normalizes separators', () => {
@@ -186,6 +187,32 @@ describe('elybyProfile helpers', () => {
 
   it('shortens uuids', () => {
     expect(shortUuid('01234567-89ab-cdef-0123-456789abcdef')).toBe('01234567…cdef')
+  })
+})
+
+describe('linuxDesktop helpers', () => {
+  it('quotes Exec paths with spaces', () => {
+    expect(quoteDesktopExec('/opt/AwesomeCraft.AppImage')).toBe('/opt/AwesomeCraft.AppImage')
+    expect(quoteDesktopExec('/home/user/My Apps/AwesomeCraft.AppImage')).toBe(
+      '"/home/user/My Apps/AwesomeCraft.AppImage"'
+    )
+  })
+
+  it('builds a FreeDesktop entry with icon and exec', () => {
+    const entry = buildLinuxDesktopEntry({
+      name: 'AwesomeCraft Launcher',
+      comment: 'Minecraft launcher',
+      execPath: '/home/user/AwesomeCraftLauncher.AppImage',
+      iconPath: '/home/user/.local/share/icons/hicolor/256x256/apps/ru.awesomecraft.launcher.png'
+    })
+    expect(entry).toContain('[Desktop Entry]')
+    expect(entry).toContain('Type=Application')
+    expect(entry).toContain('Exec=/home/user/AwesomeCraftLauncher.AppImage %U')
+    expect(entry).toContain(
+      'Icon=/home/user/.local/share/icons/hicolor/256x256/apps/ru.awesomecraft.launcher.png'
+    )
+    expect(entry).toContain('Categories=Game;')
+    expect(entry).toContain('StartupWMClass=AwesomeCraftLauncher')
   })
 })
 
