@@ -21,7 +21,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 ## Architecture
 
 - `ConfigService` persists `config.json` in Electron `userData`
-- Game files live in configurable `dataDirectory` (default `~/.awesomecraftlauncher` / `%APPDATA%/.awesomecraftlauncher`)
+- Game files live in configurable `dataDirectory` (default `~/.awesomelauncher` / `%APPDATA%\.awesomelauncher`)
 - `DistroService` loads Helios-compatible `distribution.json`
 - `InstallService` uses helios-core `FullRepair` + Java discovery, then restores preserved player configs
 - `GameService` launches via legacy Fabric/Helios ProcessBuilder adapted for Ely.by (`authlib-injector`)
