@@ -223,10 +223,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.UPDATE_STATUS, () => updaterService.getStatus())
   ipcMain.handle(IPC.UPDATE_CHECK, () => updaterService.check())
   ipcMain.handle(IPC.UPDATE_DOWNLOAD, () => updaterService.download())
-  ipcMain.handle(IPC.UPDATE_INSTALL, () => {
-    updaterService.install()
-    return true
-  })
+  ipcMain.handle(IPC.UPDATE_INSTALL, () => updaterService.install())
 }
 
 app.whenReady().then(async () => {

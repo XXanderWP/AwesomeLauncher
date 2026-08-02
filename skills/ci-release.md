@@ -20,10 +20,9 @@ Runs after successful CI on `main` (workflow_run) or manual dispatch.
 
 - Windows: `AwesomeCraftLauncher-setup-{version}.exe`
 - Linux: `AwesomeCraftLauncher-setup-{version}.AppImage`
-- macOS DMG: `AwesomeCraftLauncher-setup-{version}-{arch}.dmg` (manual install)
-- macOS ZIP: `AwesomeCraftLauncher-setup-{version}-{arch}.zip` (required by `electron-updater` / Squirrel.Mac)
+- macOS DMG: `AwesomeCraftLauncher-setup-{version}-{arch}.dmg` (manual install + in-app privileged updater)
 
-macOS packaging must include **both** `dmg` and `zip` targets. DMG-only releases make `latest-mac.yml` list only `.dmg` files and auto-update fails with `ZIP file not provided`.
+Do **not** rely on macOS ZIP / Squirrel.Mac: the app is unsigned, so `electron-updater` fails code-signature validation. macOS packaging is DMG-only.
 
 ## macOS quarantine
 
@@ -39,9 +38,12 @@ Keep app + Applications icons high in the DMG window; place the quarantine note 
 
 ## Auto-update
 
-`electron-updater` provider: GitHub (`XXanderWP/AwesomeLauncher`).
+- Windows / Linux: `electron-updater` against GitHub Releases
+- macOS: custom manual flow — check GitHub Releases API, then Install runs `osascript` with administrator privileges to download the arch DMG, replace the `.app`, clear `com.apple.quarantine`, and relaunch
 
-Settings modes:
+Settings modes (Windows / Linux):
 
 - auto download + install on quit
 - auto download + manual install button
+
+macOS UI hides auto modes and shows Check + Install (admin).

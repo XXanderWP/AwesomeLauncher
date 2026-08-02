@@ -8,6 +8,7 @@ interface Props {
   config: AppConfig
   updateStatus: UpdateStatus | null
   totalMemoryMb: number
+  platform: NodeJS.Platform | string
   onChange: (partial: Record<string, unknown>) => void | Promise<void>
   onBrowseDataDir: () => void | Promise<void>
   onPreviewLanguage: (language: LanguageSetting) => void | Promise<void>
@@ -17,6 +18,7 @@ export function SettingsPage({
   config,
   updateStatus,
   totalMemoryMb,
+  platform,
   onChange,
   onBrowseDataDir,
   onPreviewLanguage
@@ -24,6 +26,7 @@ export function SettingsPage({
   const [draft, setDraft] = useState(config)
   const [saved, setSaved] = useState(false)
   const java = draft.javaDefaults
+  const isMac = platform === 'darwin'
 
   useEffect(() => {
     setDraft(config)
@@ -285,29 +288,33 @@ export function SettingsPage({
 
       <section className="field">
         <h2>{t('settings.updates')}</h2>
-        <label className="field">
-          {t('settings.updateMode')}
-          <select
-            value={draft.settings.launcher.updateMode}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                settings: {
-                  ...draft.settings,
-                  launcher: {
-                    ...draft.settings.launcher,
-                    updateMode: e.target.value as AppConfig['settings']['launcher']['updateMode']
+        {isMac ? (
+          <p className="hint">{t('settings.macUpdateHint')}</p>
+        ) : (
+          <label className="field">
+            {t('settings.updateMode')}
+            <select
+              value={draft.settings.launcher.updateMode}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  settings: {
+                    ...draft.settings,
+                    launcher: {
+                      ...draft.settings.launcher,
+                      updateMode: e.target.value as AppConfig['settings']['launcher']['updateMode']
+                    }
                   }
-                }
-              })
-            }
-          >
-            <option value="auto-install-on-quit">{t('settings.updateMode.autoInstall')}</option>
-            <option value="auto-download-manual-install">
-              {t('settings.updateMode.manualInstall')}
-            </option>
-          </select>
-        </label>
+                })
+              }
+            >
+              <option value="auto-install-on-quit">{t('settings.updateMode.autoInstall')}</option>
+              <option value="auto-download-manual-install">
+                {t('settings.updateMode.manualInstall')}
+              </option>
+            </select>
+          </label>
+        )}
         <label className="check">
           <input
             type="checkbox"
@@ -335,28 +342,36 @@ export function SettingsPage({
           >
             {t('settings.checkUpdate')}
           </button>
-          <button
-            className="btn btn-sm"
-            type="button"
-            disabled={!updateStatus?.available || updateStatus.downloaded}
-            onClick={() => void window.awesomeAPI.downloadUpdate()}
-          >
-            {t('settings.downloadUpdate')}
-          </button>
+          {!isMac && (
+            <button
+              className="btn btn-sm"
+              type="button"
+              disabled={!updateStatus?.available || updateStatus.downloaded}
+              onClick={() => void window.awesomeAPI.downloadUpdate()}
+            >
+              {t('settings.downloadUpdate')}
+            </button>
+          )}
           <button
             className="btn btn-sm primary"
             type="button"
-            disabled={!updateStatus?.downloaded}
+            disabled={
+              isMac
+                ? !updateStatus?.available || Boolean(updateStatus.downloading)
+                : !updateStatus?.downloaded
+            }
             onClick={() => void window.awesomeAPI.installUpdate()}
           >
-            {t('settings.installUpdate')}
+            {isMac ? t('settings.installUpdateMac') : t('settings.installUpdate')}
           </button>
         </div>
-        {updateStatus?.info && (
+        {(updateStatus?.info || updateStatus?.error) && (
           <div className="hint">
-            {updateStatus.info.version}
-            {updateStatus.downloading ? ` · ${updateStatus.progress}%` : ''}
-            {updateStatus.downloaded ? ' · ready' : ''}
+            {updateStatus.info?.version || ''}
+            {updateStatus.downloading
+              ? ` · ${isMac ? t('settings.macInstalling') : `${updateStatus.progress}%`}`
+              : ''}
+            {!isMac && updateStatus.downloaded ? ' · ready' : ''}
             {updateStatus.error ? ` · ${updateStatus.error}` : ''}
           </div>
         )}
