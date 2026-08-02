@@ -168,8 +168,12 @@ export function App(): React.JSX.Element {
 
   if (!ready || !config) {
     return (
-      <div className="content">
-        <div className="panel">{t('common.loading')}</div>
+      <div className="boot-screen" role="status" aria-live="polite">
+        <div className="boot-screen-inner">
+          <img className="boot-logo" src={logo} alt="AwesomeCraft" />
+          <div className="boot-spinner" aria-hidden="true" />
+          <p className="boot-label">{t('common.loading')}</p>
+        </div>
       </div>
     )
   }
