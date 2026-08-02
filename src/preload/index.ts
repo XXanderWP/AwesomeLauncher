@@ -5,7 +5,9 @@ import type {
   DistroServerSummary,
   GameLogLine,
   GameProcessState,
+  ModInfo,
   ProgressEvent,
+  ServerModsPayload,
   ServerOnlineStatus,
   UpdateStatus
 } from '../shared/types'
@@ -64,6 +66,13 @@ const api = {
     ipcRenderer.invoke(IPC.INSTANCE_OPEN, serverId),
   deleteInstance: (serverId: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.INSTANCE_DELETE, serverId),
+
+  listMods: (serverId: string): Promise<ServerModsPayload> =>
+    ipcRenderer.invoke(IPC.MODS_LIST, serverId),
+  setModEnabled: (serverId: string, filePath: string, enabled: boolean): Promise<ModInfo> =>
+    ipcRenderer.invoke(IPC.MODS_SET_ENABLED, { serverId, filePath, enabled }),
+  deleteMod: (serverId: string, filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.MODS_DELETE, { serverId, filePath }),
 
   getGameState: (): Promise<GameProcessState> => ipcRenderer.invoke(IPC.GAME_STATE),
   getGameLogs: (): Promise<GameLogLine[]> => ipcRenderer.invoke(IPC.GAME_LOGS),

@@ -186,7 +186,10 @@ describe('path helpers and constants', () => {
       path.join('/data', 'instances', 'Prominence')
     )
     expect(javaDirectory('/data')).toBe(path.join('/data', 'java'))
+    expect(DEFAULT_DATA_DIR_NAME).toBe('.awesomelauncher')
     expect(defaultDataDirectory()).toContain(DEFAULT_DATA_DIR_NAME)
+    expect(defaultDataDirectory()).not.toContain('helioslauncher')
+    expect(defaultDataDirectory()).not.toContain('awesomecraftlauncher')
   })
 
   it('exposes remote constants', () => {

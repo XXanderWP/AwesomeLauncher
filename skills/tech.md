@@ -21,7 +21,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 ## Architecture
 
 - `ConfigService` persists `config.json` in Electron `userData`
-- Game files live in configurable `dataDirectory` (default `~/.awesomecraftlauncher` / `%APPDATA%/.awesomecraftlauncher`)
+- Game files live in configurable `dataDirectory` (default `~/.awesomelauncher` / `%APPDATA%\.awesomelauncher`)
 - `DistroService` loads Helios-compatible `distribution.json`
 - `InstallService` uses helios-core `FullRepair` + Java discovery, then restores preserved player configs
 - `GameService` launches via legacy Fabric/Helios ProcessBuilder adapted for Ely.by (`authlib-injector`)
@@ -35,6 +35,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 - Server row also shows distro pack name (e.g. `Prominence™ II: Hasturian Era`) under the live title when they differ
 - Real-time game logs + kill button while game runs
 - Compact `btn-sm` for logout / instance actions / running-game controls
+- Per-server **Mods** modal: user `mods/` (toggle/delete) then pack mods from `common/` (read-only)
 - Shared Java defaults in Settings; per-server overrides from Home
 - RAM inputs use slider + numeric field with validation against system memory
 - macOS DMG must include `How to remove quarantine.txt` via `dmg.contents` (not only app extraFiles)
