@@ -1,0 +1,206 @@
+import { BrowserWindow } from 'electron'
+import path from 'path'
+import fs from 'fs-extra'
+import { FullRepair, MojangIndexProcessor, DistributionIndexProcessor } from 'helios-core/dl'
+import {
+  discoverBestJvmInstallation,
+  latestOpenJDK,
+  extractJdk,
+  javaExecFromRoot
+} from 'helios-core/java'
+import type { ProgressEvent } from '../../../shared/types'
+import { IPC } from '../../../shared/types'
+import { commonDirectory, instanceDirectory, instancesDirectory } from '../../utils/paths'
+import type { ConfigService } from '../config/ConfigService'
+import type { DistroService } from '../distro/DistroService'
+import { backupPreservedFiles, restorePreservedFiles } from './preserveBackup'
+
+export interface InstallResult {
+  versionData: any
+  modLoaderData: any
+  server: any
+  javaPath: string
+}
+
+export class InstallService {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly distro: DistroService
+  ) {}
+
+  private emitProgress(payload: ProgressEvent): void {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IPC.EVENT_PROGRESS, payload)
+    }
+  }
+
+  async ensureJava(
+    serverId: string,
+    semverRange = '>=17 <18',
+    suggestedMajor = 17
+  ): Promise<string> {
+    const javaSettings = this.config.getJavaSettings(serverId)
+    if (javaSettings.javaPath && (await fs.pathExists(javaSettings.javaPath))) {
+      return javaSettings.javaPath
+    }
+
+    this.emitProgress({
+      phase: 'java',
+      percent: 0,
+      message: 'Scanning for Java'
+    })
+
+    const dataDir = this.config.getDataDirectory()
+    const discovered = await discoverBestJvmInstallation(dataDir, semverRange)
+    if (discovered?.path) {
+      const exec = javaExecFromRoot(discovered.path)
+      await this.config.setJavaSettings(serverId, { ...javaSettings, javaPath: exec })
+      return exec
+    }
+
+    this.emitProgress({
+      phase: 'java',
+      percent: 5,
+      message: 'Downloading Java runtime'
+    })
+
+    const asset = await latestOpenJDK(suggestedMajor, dataDir)
+    if (!asset) {
+      throw new Error(`Unable to find a downloadable JDK for Java ${suggestedMajor}`)
+    }
+
+    const { downloadFile } = require('helios-core/dl')
+    const { validateLocalFile } = require('helios-core/common')
+    await downloadFile(asset.url, asset.path, ({ transferred }: { transferred: number }) => {
+      const percent = asset.size ? Math.min(95, Math.trunc((transferred / asset.size) * 100)) : 50
+      this.emitProgress({
+        phase: 'java',
+        percent,
+        message: 'Downloading Java runtime',
+        detail: asset.id
+      })
+    })
+
+    if (!(await validateLocalFile(asset.path, asset.algo, asset.hash))) {
+      throw new Error('Downloaded JDK failed integrity validation')
+    }
+
+    this.emitProgress({ phase: 'java', percent: 96, message: 'Extracting Java runtime' })
+    const exec = await extractJdk(asset.path)
+    if (!exec) {
+      throw new Error('Failed to extract JDK')
+    }
+    await this.config.setJavaSettings(serverId, { ...javaSettings, javaPath: exec })
+    this.emitProgress({ phase: 'java', percent: 100, message: 'Java ready' })
+    return exec
+  }
+
+  async verifyAndRepair(
+    serverId: string
+  ): Promise<{ invalidFileCount: number; restoredConfigs: number }> {
+    const { raw: distro } = await this.distro.refresh()
+    const server =
+      distro.getServerById?.(serverId) ||
+      distro.servers?.find((s: any) => (s.rawServer?.id || s.id) === serverId)
+    if (!server) {
+      throw new Error(`Server not found: ${serverId}`)
+    }
+
+    const dataDir = this.config.getDataDirectory()
+    const commonDir = commonDirectory(dataDir)
+    const instanceDir = instanceDirectory(dataDir, serverId)
+    const launcherDir = path.dirname(this.config.path)
+
+    await fs.ensureDir(commonDir)
+    await fs.ensureDir(instanceDir)
+
+    const preserve = this.config.getPreservePlayerConfigs()
+    const backup = await backupPreservedFiles(instanceDir, preserve)
+
+    const fullRepair = new FullRepair(
+      commonDir,
+      instancesDirectory(dataDir),
+      launcherDir,
+      serverId,
+      this.distro.getApiInstance().isDevMode()
+    )
+
+    fullRepair.spawnReceiver()
+
+    try {
+      this.emitProgress({
+        phase: 'validate',
+        percent: 0,
+        message: 'Validating file integrity'
+      })
+
+      const invalidFileCount = await fullRepair.verifyFiles((percent) => {
+        this.emitProgress({
+          phase: 'validate',
+          percent,
+          message: 'Validating file integrity'
+        })
+      })
+
+      if (invalidFileCount > 0) {
+        this.emitProgress({
+          phase: 'download',
+          percent: 0,
+          message: `Downloading ${invalidFileCount} files`
+        })
+        await fullRepair.download((percent) => {
+          this.emitProgress({
+            phase: 'download',
+            percent,
+            message: 'Downloading game files'
+          })
+        })
+      }
+
+      const restoredConfigs = await restorePreservedFiles(backup)
+      this.emitProgress({
+        phase: 'idle',
+        percent: 100,
+        message: 'Files ready'
+      })
+      return { invalidFileCount, restoredConfigs }
+    } finally {
+      fullRepair.destroyReceiver()
+    }
+  }
+
+  async prepareLaunch(serverId: string): Promise<InstallResult> {
+    const summary = (await this.distro.get()).servers.find((s) => s.id === serverId)
+    const suggestedMajor = summary?.java.suggestedMajor || 17
+    const semverRange = summary?.java.supported || `>=${suggestedMajor} <${suggestedMajor + 1}`
+    const javaPath = await this.ensureJava(serverId, semverRange, suggestedMajor)
+
+    await this.verifyAndRepair(serverId)
+
+    const { raw: distro } = await this.distro.get()
+    const server =
+      distro.getServerById?.(serverId) ||
+      distro.servers?.find((s: any) => (s.rawServer?.id || s.id) === serverId)
+    if (!server) {
+      throw new Error(`Server not found: ${serverId}`)
+    }
+
+    const dataDir = this.config.getDataDirectory()
+    const commonDir = commonDirectory(dataDir)
+    const raw = server.rawServer || server
+
+    const mojangIndexProcessor = new MojangIndexProcessor(commonDir, raw.minecraftVersion)
+    const distributionIndexProcessor = new DistributionIndexProcessor(commonDir, distro, serverId)
+
+    await mojangIndexProcessor.init()
+    const modLoaderData = await distributionIndexProcessor.loadModLoaderVersionJson()
+    const versionData = await mojangIndexProcessor.getVersionJson()
+
+    return {
+      versionData,
+      modLoaderData,
+      server,
+      javaPath
+    }
+  }
+}
