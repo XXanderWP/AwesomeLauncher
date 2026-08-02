@@ -1,10 +1,41 @@
-import { resolve } from 'path'
+import { copyFileSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
+import type { Plugin } from 'vite'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
+const LAUNCH_HELPER_FILES = [
+  'processbuilder.legacy.js',
+  'launchBridge.js',
+  'nativeExtract.js',
+  'launchEnv.js'
+] as const
+
+/** Keep out/launch in sync — do not require .cjs here (electron-vite bundles this config as ESM). */
+function copyLaunchAssetsFromConfig(): void {
+  const srcDir = resolve('src/main/services/launch')
+  const destDir = resolve('out/launch')
+  mkdirSync(destDir, { recursive: true })
+  for (const file of LAUNCH_HELPER_FILES) {
+    copyFileSync(resolve(srcDir, file), resolve(destDir, file))
+  }
+}
+
+function copyLaunchAssetsPlugin(): Plugin {
+  return {
+    name: 'copy-launch-assets',
+    buildStart() {
+      copyLaunchAssetsFromConfig()
+    },
+    writeBundle() {
+      copyLaunchAssetsFromConfig()
+    }
+  }
+}
+
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), copyLaunchAssetsPlugin()],
     build: {
       rollupOptions: {
         input: {

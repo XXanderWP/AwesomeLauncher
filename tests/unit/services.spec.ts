@@ -158,20 +158,47 @@ describe('nativeExtract', () => {
 })
 
 describe('launchEnv', () => {
-  it('disables NVIDIA threaded GL optimizations on Linux by default', () => {
-    const env = buildMinecraftProcessEnv({ PATH: '/usr/bin', HOME: '/home/demo' }, 'linux')
+  it('builds a clean Linux env with NVIDIA/X11 workarounds', () => {
+    const env = buildMinecraftProcessEnv(
+      {
+        PATH: '/tmp/.mount_Cursor/usr/bin:/usr/bin',
+        HOME: '/home/demo',
+        DISPLAY: ':0',
+        WAYLAND_DISPLAY: 'wayland-0',
+        XDG_SESSION_TYPE: 'wayland',
+        APPDIR: '/tmp/.mount_App',
+        LD_LIBRARY_PATH: '/tmp/.mount_App/usr/lib:/usr/lib',
+        ELECTRON_RUN_AS_NODE: '1',
+        __GL_THREADED_OPTIMIZATIONS: '1'
+      },
+      'linux'
+    )
     expect(env.__GL_THREADED_OPTIMIZATIONS).toBe('0')
-    expect(env.PATH).toBe('/usr/bin')
+    expect(env.GLFW_PLATFORM).toBe('x11')
+    expect(env.GDK_BACKEND).toBe('x11')
+    expect(env.XDG_SESSION_TYPE).toBe('x11')
+    expect(env.DISPLAY).toBe(':0')
+    expect(env.HOME).toBe('/home/demo')
+    expect(env.WAYLAND_DISPLAY).toBeUndefined()
+    expect(env.APPDIR).toBeUndefined()
+    expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined()
+    expect(env.LD_LIBRARY_PATH).toBe('/usr/lib')
+    expect(env.PATH).not.toContain('.mount_')
+    expect(env.PATH).toContain('/usr/bin')
   })
 
-  it('preserves an explicit user override', () => {
-    const env = buildMinecraftProcessEnv({ __GL_THREADED_OPTIMIZATIONS: '1' }, 'linux')
-    expect(env.__GL_THREADED_OPTIMIZATIONS).toBe('1')
+  it('drops LD_LIBRARY_PATH when only bundled mount paths remain', () => {
+    const env = buildMinecraftProcessEnv(
+      { HOME: '/home/demo', DISPLAY: ':0', LD_LIBRARY_PATH: '/tmp/.mount_Foo/usr/lib/' },
+      'linux'
+    )
+    expect(env.LD_LIBRARY_PATH).toBeUndefined()
   })
 
-  it('does not set the workaround on non-Linux platforms', () => {
-    const env = buildMinecraftProcessEnv({ PATH: '/usr/bin' }, 'win32')
+  it('does not rewrite env on non-Linux platforms', () => {
+    const env = buildMinecraftProcessEnv({ PATH: '/usr/bin', ELECTRON_RUN_AS_NODE: '1' }, 'win32')
     expect(env.__GL_THREADED_OPTIMIZATIONS).toBeUndefined()
+    expect(env.ELECTRON_RUN_AS_NODE).toBe('1')
   })
 })
 

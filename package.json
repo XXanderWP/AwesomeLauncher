@@ -19,10 +19,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "node scripts/copy-launch-assets.cjs && electron-vite dev",
     "build": "electron-vite build && node scripts/copy-launch-assets.cjs",
-    "preview": "electron-vite preview",
-    "start": "electron-vite preview",
+    "preview": "node scripts/copy-launch-assets.cjs && electron-vite preview",
+    "start": "node scripts/copy-launch-assets.cjs && electron-vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

@@ -1,22 +1,35 @@
-const fs = require('fs-extra')
-const path = require('path')
+const fs = require('node:fs')
+const path = require('node:path')
 
-async function main() {
-  const root = path.join(__dirname, '..')
+const FILES = [
+  'processbuilder.legacy.js',
+  'launchBridge.js',
+  'nativeExtract.js',
+  'launchEnv.js'
+]
+
+function copyLaunchAssets(root = path.join(__dirname, '..')) {
   const srcDir = path.join(root, 'src', 'main', 'services', 'launch')
   const destDir = path.join(root, 'out', 'launch')
-  await fs.ensureDir(destDir)
-  await fs.copy(
-    path.join(srcDir, 'processbuilder.legacy.js'),
-    path.join(destDir, 'processbuilder.legacy.js')
-  )
-  await fs.copy(path.join(srcDir, 'launchBridge.js'), path.join(destDir, 'launchBridge.js'))
-  await fs.copy(path.join(srcDir, 'nativeExtract.js'), path.join(destDir, 'nativeExtract.js'))
-  await fs.copy(path.join(srcDir, 'launchEnv.js'), path.join(destDir, 'launchEnv.js'))
-  console.log('Copied launch helpers to out/launch/')
+  fs.mkdirSync(destDir, { recursive: true })
+  for (const file of FILES) {
+    fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file))
+  }
+  return { srcDir, destDir, files: FILES }
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+function main() {
+  const { destDir, files } = copyLaunchAssets()
+  console.log(`Copied launch helpers to ${destDir}/ (${files.join(', ')})`)
+}
+
+if (require.main === module) {
+  try {
+    main()
+  } catch (err) {
+    console.error(err)
+    process.exit(1)
+  }
+}
+
+module.exports = { copyLaunchAssets, FILES }
