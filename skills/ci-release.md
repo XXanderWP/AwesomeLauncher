@@ -22,9 +22,10 @@ Stable filenames (version lives in the GitHub release tag / URL):
 
 - Windows: `AwesomeLauncher.exe`
 - Linux: `AwesomeLauncher.AppImage`
-- macOS DMG: `AwesomeLauncher-{arch}.dmg` (manual install + in-app privileged updater)
+- macOS DMG: `AwesomeLauncher-{arch}.dmg` (manual install)
+- macOS ZIP: `AwesomeLauncher-{arch}.zip` (required by `electron-updater` / Squirrel.Mac when that path is used)
 
-Do **not** rely on macOS ZIP / Squirrel.Mac: the app is unsigned, so `electron-updater` fails code-signature validation. macOS packaging is DMG-only.
+macOS packaging must include **both** `dmg` and `zip` targets when using Squirrel.Mac. DMG-only releases make `latest-mac.yml` list only `.dmg` files and auto-update fails with `ZIP file not provided`.
 
 ## macOS quarantine
 

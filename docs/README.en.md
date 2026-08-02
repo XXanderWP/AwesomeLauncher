@@ -12,9 +12,9 @@ Get the latest build from [GitHub Releases](https://github.com/XXanderWP/Awesome
 
 | File | Platform |
 |------|----------|
-| `AwesomeCraftLauncher-setup-*.exe` | Windows |
-| `AwesomeCraftLauncher-setup-*.AppImage` | Linux |
-| `AwesomeCraftLauncher-setup-*-arm64.dmg` / `*-x64.dmg` | macOS |
+| `AwesomeLauncher.exe` | Windows |
+| `AwesomeLauncher.AppImage` | Linux |
+| `AwesomeLauncher-arm64.dmg` / `AwesomeLauncher-x64.dmg` | macOS |
 
 ### macOS Gatekeeper
 

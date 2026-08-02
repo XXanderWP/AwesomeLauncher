@@ -26,6 +26,8 @@ extraResources:
     to: mac
     filter:
       - '**/*'
+  - from: build/icon.png
+    to: icon.png
 
 win:
   target:
@@ -47,6 +49,10 @@ mac:
     # Unsigned builds cannot use Squirrel.Mac auto-update. Ship DMG only;
     # the launcher installs updates manually via privileged osascript.
     - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
       arch:
         - x64
         - arm64

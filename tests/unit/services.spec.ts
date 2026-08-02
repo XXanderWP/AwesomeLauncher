@@ -18,6 +18,11 @@ import {
   stripMotdFormatting
 } from '../../src/shared/serverDisplayName'
 import {
+  linuxDesktopFilePath,
+  linuxIconFilePath,
+  resolveLinuxExecPath
+} from '../../src/main/services/desktop/linuxDesktopShortcut'
+import {
   buildMacPrivilegedUpdateScript,
   compareVersions,
   macArchLabel,
@@ -131,6 +136,24 @@ describe('serverDisplayName', () => {
     expect(resolveServerDisplayName('Distro Name', null, 'Cached')).toBe('Cached')
     expect(resolveServerDisplayName('Distro Name', '  ', null)).toBe('Distro Name')
     expect(resolveServerDisplayName('Distro Name', undefined, undefined)).toBe('Distro Name')
+  })
+})
+
+describe('linuxDesktopShortcut paths', () => {
+  it('prefers APPIMAGE env for Exec path', () => {
+    expect(resolveLinuxExecPath({ APPIMAGE: '/tmp/App.AppImage' }, '/usr/bin/electron')).toBe(
+      '/tmp/App.AppImage'
+    )
+    expect(resolveLinuxExecPath({}, '/usr/bin/electron')).toBe('/usr/bin/electron')
+  })
+
+  it('builds XDG applications and icon paths', () => {
+    expect(linuxDesktopFilePath('/home/demo')).toBe(
+      '/home/demo/.local/share/applications/ru.awesomecraft.launcher.desktop'
+    )
+    expect(linuxIconFilePath('/home/demo')).toContain(
+      '/home/demo/.local/share/icons/hicolor/256x256/apps/ru.awesomecraft.launcher.png'
+    )
   })
 })
 

@@ -4,6 +4,14 @@ import { validateRamLimits } from '@shared/ramValidation'
 import { t } from '../i18n'
 import { RamSliderField } from '../components/RamSliderField'
 
+interface DesktopShortcutStatus {
+  supported: boolean
+  installed: boolean
+  desktopPath: string
+  iconPath: string
+  execPath: string
+}
+
 interface Props {
   config: AppConfig
   updateStatus: UpdateStatus | null
@@ -26,11 +34,26 @@ export function SettingsPage({
   const [draft, setDraft] = useState(config)
   const [saved, setSaved] = useState(false)
   const java = draft.javaDefaults
+  const isLinux = platform === 'linux'
+  const [shortcut, setShortcut] = useState<DesktopShortcutStatus | null>(null)
+  const [shortcutBusy, setShortcutBusy] = useState(false)
+  const [shortcutError, setShortcutError] = useState<string | null>(null)
   const isMac = platform === 'darwin'
 
   useEffect(() => {
     setDraft(config)
   }, [config])
+
+  useEffect(() => {
+    if (!isLinux) return
+    let cancelled = false
+    void window.awesomeAPI.getDesktopShortcutStatus().then((status) => {
+      if (!cancelled) setShortcut(status)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isLinux])
 
   const validation = useMemo(
     () => validateRamLimits(java.minRamMb, java.maxRamMb, totalMemoryMb),
@@ -66,6 +89,21 @@ export function SettingsPage({
       }
     })
     await onPreviewLanguage(language)
+  }
+
+  async function toggleLinuxShortcut(): Promise<void> {
+    setShortcutBusy(true)
+    setShortcutError(null)
+    try {
+      const next = shortcut?.installed
+        ? await window.awesomeAPI.removeDesktopShortcut()
+        : await window.awesomeAPI.installDesktopShortcut()
+      setShortcut(next)
+    } catch (err) {
+      setShortcutError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setShortcutBusy(false)
+    }
   }
 
   return (
@@ -285,6 +323,29 @@ export function SettingsPage({
           />
         </label>
       </section>
+
+      {isLinux && (
+        <section className="field">
+          <h2>{t('settings.desktopShortcut')}</h2>
+          <p className="hint">{t('settings.desktopShortcut.hint')}</p>
+          <div className="actions">
+            <button
+              className="btn btn-sm primary"
+              type="button"
+              disabled={shortcutBusy}
+              onClick={() => void toggleLinuxShortcut()}
+            >
+              {shortcut?.installed
+                ? t('settings.desktopShortcut.remove')
+                : t('settings.desktopShortcut.add')}
+            </button>
+          </div>
+          {shortcut?.installed && (
+            <div className="hint">{t('settings.desktopShortcut.installed')}</div>
+          )}
+          {shortcutError && <div className="error-box">{shortcutError}</div>}
+        </section>
+      )}
 
       <section className="field">
         <h2>{t('settings.updates')}</h2>

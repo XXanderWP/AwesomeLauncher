@@ -101,6 +101,12 @@ const translations = {
     'settings.checkUpdate': 'Check for updates',
     'settings.downloadUpdate': 'Download update',
     'settings.installUpdate': 'Install and restart',
+    'settings.desktopShortcut': 'Application menu',
+    'settings.desktopShortcut.hint':
+      'Add a shortcut so AwesomeCraft appears with its icon in KDE, GNOME, and other app menus.',
+    'settings.desktopShortcut.add': 'Add application shortcut',
+    'settings.desktopShortcut.remove': 'Remove application shortcut',
+    'settings.desktopShortcut.installed': 'Shortcut is installed for this user.',
     'settings.installUpdateMac': 'Install (admin password)',
     'settings.macUpdateHint':
       'macOS updates are installed manually. Install asks for an admin password, downloads the DMG, replaces the app, and removes Gatekeeper quarantine.',
@@ -215,6 +221,12 @@ const translations = {
     'settings.checkUpdate': 'Проверить обновления',
     'settings.downloadUpdate': 'Скачать обновление',
     'settings.installUpdate': 'Установить и перезапустить',
+    'settings.desktopShortcut': 'Меню приложений',
+    'settings.desktopShortcut.hint':
+      'Добавьте ярлык, чтобы AwesomeCraft появился с иконкой в меню KDE, GNOME и других оболочек.',
+    'settings.desktopShortcut.add': 'Добавить ярлык приложения',
+    'settings.desktopShortcut.remove': 'Удалить ярлык приложения',
+    'settings.desktopShortcut.installed': 'Ярлык установлен для текущего пользователя.',
     'settings.installUpdateMac': 'Установить (пароль администратора)',
     'settings.macUpdateHint':
       'На macOS обновления ставятся вручную. Кнопка установки запросит пароль администратора, скачает DMG, заменит приложение и снимет карантин Gatekeeper.',
@@ -329,6 +341,12 @@ const translations = {
     'settings.checkUpdate': 'Перевірити оновлення',
     'settings.downloadUpdate': 'Завантажити оновлення',
     'settings.installUpdate': 'Встановити і перезапустити',
+    'settings.desktopShortcut': 'Меню програм',
+    'settings.desktopShortcut.hint':
+      'Додайте ярлик, щоб AwesomeCraft з’явився з іконкою в меню KDE, GNOME та інших оболонок.',
+    'settings.desktopShortcut.add': 'Додати ярлик програми',
+    'settings.desktopShortcut.remove': 'Видалити ярлик програми',
+    'settings.desktopShortcut.installed': 'Ярлик встановлено для поточного користувача.',
     'settings.installUpdateMac': 'Встановити (пароль адміністратора)',
     'settings.macUpdateHint':
       'На macOS оновлення встановлюються вручну. Кнопка встановлення запросить пароль адміністратора, завантажить DMG, замінить програму і зніме карантин Gatekeeper.',
