@@ -15,6 +15,7 @@ const ElybyPaths = {
 }
 
 const logger = LoggerUtil.getLogger('ProcessBuilder')
+const { extractNativeZip } = require('./nativeExtract')
 
 function elybyJavaAgentArg() {
   const jar = ElybyPaths.getAuthlibInjectorJarPath()
@@ -926,32 +927,7 @@ class ProcessBuilder {
 
           // Location of native zip.
           const to = path.join(this.libPath, artifact.path)
-
-          let zip = new AdmZip(to)
-          let zipEntries = zip.getEntries()
-
-          // Unzip the native zip.
-          for (let i = 0; i < zipEntries.length; i++) {
-            const fileName = zipEntries[i].entryName
-
-            let shouldExclude = false
-
-            // Exclude noted files.
-            exclusionArr.forEach(function (exclusion) {
-              if (fileName.indexOf(exclusion) > -1) {
-                shouldExclude = true
-              }
-            })
-
-            // Extract the file.
-            if (!shouldExclude) {
-              fs.writeFile(path.join(tempNativePath, fileName), zipEntries[i].getData(), (err) => {
-                if (err) {
-                  logger.error('Error while extracting native library:', err)
-                }
-              })
-            }
-          }
+          extractNativeZip(to, tempNativePath, exclusionArr)
         }
         // 1.19+ logic
         else if (lib.name.includes('natives-')) {
@@ -970,44 +946,7 @@ class ProcessBuilder {
 
           // Location of native zip.
           const to = path.join(this.libPath, artifact.path)
-
-          let zip = new AdmZip(to)
-          let zipEntries = zip.getEntries()
-
-          // Unzip the native zip.
-          for (let i = 0; i < zipEntries.length; i++) {
-            if (zipEntries[i].isDirectory) {
-              continue
-            }
-
-            const fileName = zipEntries[i].entryName
-
-            let shouldExclude = false
-
-            // Exclude noted files.
-            exclusionArr.forEach(function (exclusion) {
-              if (fileName.indexOf(exclusion) > -1) {
-                shouldExclude = true
-              }
-            })
-
-            const extractName = fileName.includes('/')
-              ? fileName.substring(fileName.lastIndexOf('/'))
-              : fileName
-
-            // Extract the file.
-            if (!shouldExclude) {
-              fs.writeFile(
-                path.join(tempNativePath, extractName),
-                zipEntries[i].getData(),
-                (err) => {
-                  if (err) {
-                    logger.error('Error while extracting native library:', err)
-                  }
-                }
-              )
-            }
-          }
+          extractNativeZip(to, tempNativePath, exclusionArr)
         }
         // No natives
         else {

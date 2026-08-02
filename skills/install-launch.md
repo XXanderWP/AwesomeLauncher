@@ -31,6 +31,14 @@ New launcher:
 
 Integrity verification still validates mods/libraries/assets.
 
+## Natives extraction
+
+LWJGL/OpenGL natives are unzipped into a temp natives directory **synchronously** before spawn.
+
+Destination file names use `path.basename(entry)` only. Using a zip entry path that starts with `/`
+makes Node `path.join` discard the natives directory on Linux and write to the filesystem root
+(or fail), which then crashes Minecraft with `SIGSEGV` in `org.lwjgl.system.JNI`.
+
 ## Game session UX
 
 While running:

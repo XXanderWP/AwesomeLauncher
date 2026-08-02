@@ -18,6 +18,8 @@ import {
   stripMotdFormatting
 } from '../../src/shared/serverDisplayName'
 
+const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
+
 jest.mock('helios-core/mojang', () => ({
   getServerStatus: jest.fn(async () => ({
     version: { name: '1.20.1', protocol: 47 },
@@ -124,6 +126,21 @@ describe('serverDisplayName', () => {
     expect(resolveServerDisplayName('Distro Name', null, 'Cached')).toBe('Cached')
     expect(resolveServerDisplayName('Distro Name', '  ', null)).toBe('Distro Name')
     expect(resolveServerDisplayName('Distro Name', undefined, undefined)).toBe('Distro Name')
+  })
+})
+
+describe('nativeExtract', () => {
+  it('keeps natives under the temp dir even when zip entry has a leading slash', () => {
+    const dest = resolveNativeExtractPath('/tmp/natives', '/libglfw.so')
+    expect(dest).toBe(path.join('/tmp/natives', 'libglfw.so'))
+    expect(dest.startsWith('/tmp/natives')).toBe(true)
+  })
+
+  it('uses basename for nested zip entries', () => {
+    expect(resolveNativeExtractPath('/tmp/natives', 'linux/x64/liblwjgl.so')).toBe(
+      path.join('/tmp/natives', 'liblwjgl.so')
+    )
+    expect(resolveNativeExtractPath('/tmp/natives', '..')).toBeNull()
   })
 })
 
