@@ -4,7 +4,22 @@
 
 Only Ely.by authentication is supported. Microsoft and offline accounts are intentionally not implemented.
 
-## API
+## Preferred flow: OAuth device code
+
+Endpoints:
+
+- `POST https://account.ely.by/api/oauth2/v1/devicecode`
+- `POST https://account.ely.by/api/oauth2/v1/token` (`grant_type=urn:ietf:params:oauth:grant-type:device_code`)
+- Account info: `GET https://account.ely.by/api/account/v1/info` with `Authorization: Bearer …`
+
+Default public `client_id`: `ely` (constant `ELYBY_OAUTH_CLIENT_ID`).
+Scopes: `account_info offline_access minecraft_server_session`.
+
+The OAuth access token is used directly as the Minecraft session token (same pattern as ElyPrismLauncher).
+
+UI: device code is the primary login tab; username/password remains available as fallback.
+
+## Legacy password API
 
 Base URL: `https://authserver.ely.by`
 

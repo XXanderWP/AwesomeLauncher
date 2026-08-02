@@ -24,11 +24,15 @@ Runs after successful CI on `main` (workflow_run) or manual dispatch.
 
 ## macOS quarantine
 
-DMG includes `QUARANTINE-README.txt` with:
+DMG Finder view must include a visible text file (configured in `electron-builder.yml` → `dmg.contents`):
+
+- File: `How to remove quarantine.txt` (from `resources/mac/QUARANTINE-README.txt`)
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/AwesomeCraftLauncher.app"
 ```
+
+Keep app + Applications icons high in the DMG window; place the quarantine note lower. Dotfiles (`.background` / `.VolumeIcon.icns`) are system-hidden; taller window keeps them out of the primary composition if revealed.
 
 ## Auto-update
 

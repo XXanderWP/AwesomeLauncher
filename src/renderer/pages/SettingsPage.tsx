@@ -1,44 +1,68 @@
-import { useEffect, useState } from 'react'
-import type { AppConfig, UpdateStatus } from '@shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { AppConfig, LanguageSetting, UpdateStatus } from '@shared/types'
+import { validateRamLimits } from '@shared/ramValidation'
 import { t } from '../i18n'
+import { RamSliderField } from '../components/RamSliderField'
 
 interface Props {
   config: AppConfig
   updateStatus: UpdateStatus | null
+  totalMemoryMb: number
   onChange: (partial: Record<string, unknown>) => void | Promise<void>
   onBrowseDataDir: () => void | Promise<void>
+  onPreviewLanguage: (language: LanguageSetting) => void | Promise<void>
 }
 
 export function SettingsPage({
   config,
   updateStatus,
+  totalMemoryMb,
   onChange,
-  onBrowseDataDir
+  onBrowseDataDir,
+  onPreviewLanguage
 }: Props): React.JSX.Element {
   const [draft, setDraft] = useState(config)
   const [saved, setSaved] = useState(false)
-  const serverId = draft.selectedServerId || 'default'
-  const java = draft.javaByServer[serverId] || {
-    minRamMb: 6144,
-    maxRamMb: 9504,
-    javaPath: '',
-    jvmOptions: []
-  }
+  const java = draft.javaDefaults
 
   useEffect(() => {
     setDraft(config)
   }, [config])
 
+  const validation = useMemo(
+    () => validateRamLimits(java.minRamMb, java.maxRamMb, totalMemoryMb),
+    [java.minRamMb, java.maxRamMb, totalMemoryMb]
+  )
+
+  const sliderMax = Math.max(1024, totalMemoryMb - 256)
+
   async function save(): Promise<void> {
+    if (!validation.canSave) return
     await onChange({
       settings: draft.settings,
-      javaByServer: {
-        ...draft.javaByServer,
-        [serverId]: java
-      }
+      javaDefaults: java
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  function cancel(): void {
+    setDraft(config)
+    void onPreviewLanguage(config.settings.launcher.language)
+  }
+
+  async function onLanguageChange(language: LanguageSetting): Promise<void> {
+    setDraft({
+      ...draft,
+      settings: {
+        ...draft.settings,
+        launcher: {
+          ...draft.settings.launcher,
+          language
+        }
+      }
+    })
+    await onPreviewLanguage(language)
   }
 
   return (
@@ -51,18 +75,7 @@ export function SettingsPage({
           {t('settings.language')}
           <select
             value={draft.settings.launcher.language}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                settings: {
-                  ...draft.settings,
-                  launcher: {
-                    ...draft.settings.launcher,
-                    language: e.target.value as AppConfig['settings']['launcher']['language']
-                  }
-                }
-              })
-            }
+            onChange={(e) => void onLanguageChange(e.target.value as LanguageSetting)}
           >
             <option value="system">{t('settings.language.system')}</option>
             <option value="en">English</option>
@@ -75,13 +88,13 @@ export function SettingsPage({
           {t('settings.dataDirectory')}
           <div className="field-row">
             <input value={draft.settings.launcher.dataDirectory} readOnly />
-            <button className="btn" type="button" onClick={() => void onBrowseDataDir()}>
+            <button className="btn btn-sm" type="button" onClick={() => void onBrowseDataDir()}>
               {t('settings.browse')}
             </button>
           </div>
         </label>
 
-        <label className="checkbox">
+        <label className="check">
           <input
             type="checkbox"
             checked={draft.settings.launcher.preservePlayerConfigs}
@@ -98,9 +111,11 @@ export function SettingsPage({
               })
             }
           />
-          {t('settings.preserveConfigs')}
+          <span>
+            <strong>{t('settings.preserveConfigs')}</strong>
+            <small>{t('settings.preserveConfigs.hint')}</small>
+          </span>
         </label>
-        <div className="hint">{t('settings.preserveConfigs.hint')}</div>
       </section>
 
       <section className="field">
@@ -137,7 +152,7 @@ export function SettingsPage({
             />
           </div>
         </label>
-        <label className="checkbox">
+        <label className="check">
           <input
             type="checkbox"
             checked={draft.settings.game.fullscreen}
@@ -151,9 +166,9 @@ export function SettingsPage({
               })
             }
           />
-          {t('settings.fullscreen')}
+          <span>{t('settings.fullscreen')}</span>
         </label>
-        <label className="checkbox">
+        <label className="check">
           <input
             type="checkbox"
             checked={draft.settings.game.autoConnect}
@@ -167,9 +182,9 @@ export function SettingsPage({
               })
             }
           />
-          {t('settings.autoConnect')}
+          <span>{t('settings.autoConnect')}</span>
         </label>
-        <label className="checkbox">
+        <label className="check">
           <input
             type="checkbox"
             checked={draft.settings.game.launchDetached}
@@ -183,46 +198,57 @@ export function SettingsPage({
               })
             }
           />
-          {t('settings.detached')}
+          <span>{t('settings.detached')}</span>
         </label>
       </section>
 
       <section className="field">
-        <h2>{t('settings.java')}</h2>
-        <label className="field">
-          {t('settings.minRam')}
-          <input
-            type="number"
-            value={java.minRamMb}
-            onChange={(e) => {
-              const minRamMb = Number(e.target.value) || 2048
-              setDraft({
-                ...draft,
-                javaByServer: {
-                  ...draft.javaByServer,
-                  [serverId]: { ...java, minRamMb }
-                }
-              })
-            }}
-          />
-        </label>
-        <label className="field">
-          {t('settings.maxRam')}
-          <input
-            type="number"
-            value={java.maxRamMb}
-            onChange={(e) => {
-              const maxRamMb = Number(e.target.value) || 4096
-              setDraft({
-                ...draft,
-                javaByServer: {
-                  ...draft.javaByServer,
-                  [serverId]: { ...java, maxRamMb }
-                }
-              })
-            }}
-          />
-        </label>
+        <h2>{t('settings.java.general')}</h2>
+        <p className="hint">{t('settings.java.generalHint')}</p>
+        <RamSliderField
+          label={t('settings.minRam')}
+          value={java.minRamMb}
+          min={512}
+          max={sliderMax}
+          invalid={validation.minGreaterThanMax}
+          onChange={(minRamMb) =>
+            setDraft({
+              ...draft,
+              javaDefaults: { ...java, minRamMb }
+            })
+          }
+        />
+        <RamSliderField
+          label={t('settings.maxRam')}
+          value={java.maxRamMb}
+          min={512}
+          max={sliderMax}
+          invalid={validation.minGreaterThanMax || validation.maxAtOrAboveTotal}
+          onChange={(maxRamMb) =>
+            setDraft({
+              ...draft,
+              javaDefaults: { ...java, maxRamMb }
+            })
+          }
+        />
+
+        {validation.minGreaterThanMax && (
+          <div className="warn-box danger">{t('settings.ram.minMaxError')}</div>
+        )}
+        {validation.maxAtOrAboveTotal && (
+          <div className="warn-box danger">{t('settings.ram.fullError', totalMemoryMb)}</div>
+        )}
+        {!validation.minGreaterThanMax &&
+          !validation.maxAtOrAboveTotal &&
+          validation.warningLevel === 'red' && (
+            <div className="warn-box danger">{t('settings.ram.redWarning')}</div>
+          )}
+        {!validation.minGreaterThanMax &&
+          !validation.maxAtOrAboveTotal &&
+          validation.warningLevel === 'yellow' && (
+            <div className="warn-box warning">{t('settings.ram.yellowWarning')}</div>
+          )}
+
         <label className="field">
           {t('settings.javaPath')}
           <input
@@ -230,10 +256,7 @@ export function SettingsPage({
             onChange={(e) =>
               setDraft({
                 ...draft,
-                javaByServer: {
-                  ...draft.javaByServer,
-                  [serverId]: { ...java, javaPath: e.target.value || null }
-                }
+                javaDefaults: { ...java, javaPath: e.target.value || null }
               })
             }
             placeholder="auto"
@@ -247,15 +270,12 @@ export function SettingsPage({
             onChange={(e) =>
               setDraft({
                 ...draft,
-                javaByServer: {
-                  ...draft.javaByServer,
-                  [serverId]: {
-                    ...java,
-                    jvmOptions: e.target.value
-                      .split(/\r?\n/)
-                      .map((x) => x.trim())
-                      .filter(Boolean)
-                  }
+                javaDefaults: {
+                  ...java,
+                  jvmOptions: e.target.value
+                    .split(/\r?\n/)
+                    .map((x) => x.trim())
+                    .filter(Boolean)
                 }
               })
             }
@@ -288,7 +308,7 @@ export function SettingsPage({
             </option>
           </select>
         </label>
-        <label className="checkbox">
+        <label className="check">
           <input
             type="checkbox"
             checked={draft.settings.launcher.allowPrerelease}
@@ -305,18 +325,18 @@ export function SettingsPage({
               })
             }
           />
-          {t('settings.allowPrerelease')}
+          <span>{t('settings.allowPrerelease')}</span>
         </label>
         <div className="actions">
           <button
-            className="btn"
+            className="btn btn-sm"
             type="button"
             onClick={() => void window.awesomeAPI.checkForUpdates()}
           >
             {t('settings.checkUpdate')}
           </button>
           <button
-            className="btn"
+            className="btn btn-sm"
             type="button"
             disabled={!updateStatus?.available || updateStatus.downloaded}
             onClick={() => void window.awesomeAPI.downloadUpdate()}
@@ -324,7 +344,7 @@ export function SettingsPage({
             {t('settings.downloadUpdate')}
           </button>
           <button
-            className="btn primary"
+            className="btn btn-sm primary"
             type="button"
             disabled={!updateStatus?.downloaded}
             onClick={() => void window.awesomeAPI.installUpdate()}
@@ -343,8 +363,16 @@ export function SettingsPage({
       </section>
 
       <div className="actions">
-        <button className="btn primary" type="button" onClick={() => void save()}>
+        <button
+          className="btn primary"
+          type="button"
+          disabled={!validation.canSave}
+          onClick={() => void save()}
+        >
           {t('settings.save')}
+        </button>
+        <button className="btn" type="button" onClick={cancel}>
+          {t('settings.cancel')}
         </button>
         {saved && <span className="muted">{t('settings.saved')}</span>}
       </div>

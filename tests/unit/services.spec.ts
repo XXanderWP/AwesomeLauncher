@@ -31,6 +31,7 @@ describe('ConfigService', () => {
     expect(cfg.clientToken).toHaveLength(32)
     expect(cfg.settings.launcher.preservePlayerConfigs).toBe(true)
     expect(cfg.settings.launcher.language).toBe('system')
+    expect(cfg.javaDefaults.maxRamMb).toBeGreaterThan(0)
 
     await service.setAccount(
       {
@@ -50,9 +51,10 @@ describe('ConfigService', () => {
     expect(service.getLanguageSetting()).toBe('ru')
 
     const java = service.getJavaSettings('Prominence', { minRamMb: 1000, maxRamMb: 2000 })
-    expect(java.minRamMb).toBe(1000)
+    expect(java.minRamMb).toBe(service.getJavaDefaults().minRamMb)
     await service.setJavaSettings('Prominence', { ...java, maxRamMb: 3000 })
     expect(service.getJavaSettings('Prominence').maxRamMb).toBe(3000)
+    expect(service.hasJavaOverride('Prominence')).toBe(true)
 
     await service.removeAccount('01234567-89ab-cdef-0123-456789abcdef')
     expect(service.getSelectedAccount()).toBeNull()

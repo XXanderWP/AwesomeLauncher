@@ -24,14 +24,14 @@ export function LogsPage({ logs, running, onClear, onBack, onKill }: Props): Rea
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h1>{t('logs.title')}</h1>
         <div className="actions" style={{ marginTop: 0 }}>
-          <button className="btn" onClick={onBack}>
+          <button className="btn btn-sm" onClick={onBack}>
             {t('logs.back')}
           </button>
-          <button className="btn" onClick={() => void onClear()}>
+          <button className="btn btn-sm" onClick={() => void onClear()}>
             {t('logs.clear')}
           </button>
           {running && (
-            <button className="btn danger" onClick={() => void onKill()}>
+            <button className="btn btn-sm danger" onClick={() => void onKill()}>
               {t('home.kill')}
             </button>
           )}

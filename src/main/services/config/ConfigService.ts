@@ -11,7 +11,41 @@ import type {
 import { createClientToken } from '../auth/elybyAuth'
 import { defaultDataDirectory } from '../../utils/paths'
 
-const CONFIG_VERSION = 1
+const CONFIG_VERSION = 2
+
+const DEFAULT_JVM_OPTIONS = [
+  '-XX:+UseG1GC',
+  '-XX:+ParallelRefProcEnabled',
+  '-XX:MaxGCPauseMillis=200',
+  '-XX:+UnlockExperimentalVMOptions',
+  '-XX:+DisableExplicitGC',
+  '-XX:+AlwaysPreTouch',
+  '-XX:G1NewSizePercent=30',
+  '-XX:G1MaxNewSizePercent=40',
+  '-XX:G1HeapRegionSize=8M',
+  '-XX:G1ReservePercent=20',
+  '-XX:G1HeapWastePercent=5',
+  '-XX:G1MixedGCCountTarget=4',
+  '-XX:InitiatingHeapOccupancyPercent=15',
+  '-XX:G1MixedGCLiveThresholdPercent=90',
+  '-XX:G1RSetUpdatingPauseTimePercent=5',
+  '-XX:SurvivorRatio=32',
+  '-XX:+PerfDisableSharedMem',
+  '-XX:MaxTenuringThreshold=1',
+  '-Dusing.aikars.flags=https://mcflags.emc.gs',
+  '-Daikars.new.flags=true'
+]
+
+export function buildDefaultJavaSettings(
+  defaults?: Partial<JavaServerSettings>
+): JavaServerSettings {
+  return {
+    minRamMb: defaults?.minRamMb ?? 4096,
+    maxRamMb: defaults?.maxRamMb ?? 8192,
+    javaPath: defaults?.javaPath ?? null,
+    jvmOptions: defaults?.jvmOptions ?? [...DEFAULT_JVM_OPTIONS]
+  }
+}
 
 function buildDefaultConfig(): AppConfig {
   return {
@@ -36,6 +70,7 @@ function buildDefaultConfig(): AppConfig {
         preservePlayerConfigs: true
       }
     },
+    javaDefaults: buildDefaultJavaSettings(),
     javaByServer: {}
   }
 }
@@ -87,6 +122,9 @@ export class ConfigService {
     if (!this.config.clientToken) {
       this.config.clientToken = createClientToken()
     }
+    if (!this.config.javaDefaults) {
+      this.config.javaDefaults = buildDefaultJavaSettings()
+    }
     await this.save()
     return this.get()
   }
@@ -120,40 +158,43 @@ export class ConfigService {
     return this.get()
   }
 
-  getJavaSettings(serverId: string, defaults?: Partial<JavaServerSettings>): JavaServerSettings {
-    const existing = this.config.javaByServer[serverId]
-    if (existing) return { ...existing }
-    return {
-      minRamMb: defaults?.minRamMb ?? 4096,
-      maxRamMb: defaults?.maxRamMb ?? 8192,
-      javaPath: defaults?.javaPath ?? null,
-      jvmOptions: defaults?.jvmOptions ?? [
-        '-XX:+UseG1GC',
-        '-XX:+ParallelRefProcEnabled',
-        '-XX:MaxGCPauseMillis=200',
-        '-XX:+UnlockExperimentalVMOptions',
-        '-XX:+DisableExplicitGC',
-        '-XX:+AlwaysPreTouch',
-        '-XX:G1NewSizePercent=30',
-        '-XX:G1MaxNewSizePercent=40',
-        '-XX:G1HeapRegionSize=8M',
-        '-XX:G1ReservePercent=20',
-        '-XX:G1HeapWastePercent=5',
-        '-XX:G1MixedGCCountTarget=4',
-        '-XX:InitiatingHeapOccupancyPercent=15',
-        '-XX:G1MixedGCLiveThresholdPercent=90',
-        '-XX:G1RSetUpdatingPauseTimePercent=5',
-        '-XX:SurvivorRatio=32',
-        '-XX:+PerfDisableSharedMem',
-        '-XX:MaxTenuringThreshold=1',
-        '-Dusing.aikars.flags=https://mcflags.emc.gs',
-        '-Daikars.new.flags=true'
-      ]
+  getJavaDefaults(): JavaServerSettings {
+    return { ...(this.config.javaDefaults || buildDefaultJavaSettings()) }
+  }
+
+  /**
+   * Effective Java settings for a server = defaults merged with optional override.
+   */
+  getJavaSettings(
+    serverId: string,
+    packDefaults?: Partial<JavaServerSettings>
+  ): JavaServerSettings {
+    const base = {
+      ...buildDefaultJavaSettings(packDefaults),
+      ...this.getJavaDefaults()
     }
+    const override = this.config.javaByServer[serverId]
+    return override ? { ...base, ...override } : base
+  }
+
+  hasJavaOverride(serverId: string): boolean {
+    return Boolean(this.config.javaByServer[serverId])
+  }
+
+  async setJavaDefaults(settings: JavaServerSettings): Promise<AppConfig> {
+    this.config.javaDefaults = settings
+    await this.save()
+    return this.get()
   }
 
   async setJavaSettings(serverId: string, settings: JavaServerSettings): Promise<AppConfig> {
     this.config.javaByServer[serverId] = settings
+    await this.save()
+    return this.get()
+  }
+
+  async clearJavaOverride(serverId: string): Promise<AppConfig> {
+    delete this.config.javaByServer[serverId]
     await this.save()
     return this.get()
   }
@@ -170,11 +211,20 @@ export class ConfigService {
     return this.config.settings.launcher.preservePlayerConfigs !== false
   }
 
-  private mergeWithDefaults(raw: Partial<AppConfig>): AppConfig {
-    return deepMerge(
+  private mergeWithDefaults(
+    raw: Partial<AppConfig> & { javaDefaults?: JavaServerSettings }
+  ): AppConfig {
+    const merged = deepMerge(
       buildDefaultConfig() as unknown as Record<string, unknown>,
       raw as DeepPartial<Record<string, unknown>>
     ) as unknown as AppConfig
+
+    if (!merged.javaDefaults) {
+      // Migrate older configs that only had javaByServer entries.
+      const firstOverride = Object.values(merged.javaByServer || {})[0]
+      merged.javaDefaults = buildDefaultJavaSettings(firstOverride)
+    }
+    return merged
   }
 }
 
