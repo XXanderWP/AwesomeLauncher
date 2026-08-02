@@ -78,7 +78,7 @@ const translations = {
     'settings.browse': 'Browse',
     'settings.preserveConfigs': 'Preserve player configs',
     'settings.preserveConfigs.hint':
-      'Do not overwrite options, servers.dat, and config files that already exist',
+      'Keep existing options.txt, optionshaders, config files, and user mods; still update pack files elsewhere',
     'settings.resolution': 'Resolution',
     'settings.fullscreen': 'Fullscreen',
     'settings.autoConnect': 'Auto-connect to server',
@@ -199,7 +199,7 @@ const translations = {
     'settings.browse': 'Обзор',
     'settings.preserveConfigs': 'Сохранять конфиги игрока',
     'settings.preserveConfigs.hint':
-      'Не перезаписывать options, servers.dat и существующие файлы config',
+      'Сохранять options.txt, optionshaders, config и пользовательские моды; остальные файлы пака обновлять',
     'settings.resolution': 'Разрешение',
     'settings.fullscreen': 'Полный экран',
     'settings.autoConnect': 'Автоподключение к серверу',
@@ -319,7 +319,7 @@ const translations = {
     'settings.browse': 'Огляд',
     'settings.preserveConfigs': 'Зберігати конфіги гравця',
     'settings.preserveConfigs.hint':
-      'Не перезаписувати options, servers.dat та наявні файли config',
+      'Зберігати options.txt, optionshaders, config і користувацькі моди; інші файли паку оновлювати',
     'settings.resolution': 'Роздільність',
     'settings.fullscreen': 'Повний екран',
     'settings.autoConnect': 'Автопідключення до сервера',

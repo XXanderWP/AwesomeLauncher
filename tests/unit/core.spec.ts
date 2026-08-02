@@ -1,8 +1,11 @@
 import {
   isPlayerMutablePath,
   shouldPreserveExistingFile,
-  normalizeGameRelativePath
-} from '../../src/shared/preservePaths'
+  normalizeGameRelativePath,
+  canDeleteOrphanTrackedPath,
+  isFullyImmunePath,
+  isUserModsPath
+} from '../../src/shared/syncRules'
 import { resolveLanguage, isSupportedLanguage } from '../../src/shared/i18nResolve'
 import { parseHostPort, clamp, formatBytes } from '../../src/main/utils/paths'
 import {
@@ -12,8 +15,19 @@ import {
 } from '../../src/main/services/auth/elybyAuth'
 import {
   backupPreservedFiles,
+  removeUnbackedUserMods,
   restorePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
+import {
+  collectDistributionModules,
+  instanceRelativePath,
+  removeOrphanTrackedFiles,
+  shouldSkipRemoteModule
+} from '../../src/main/services/download/fileSync'
+import {
+  loadServerFileIndex,
+  saveServerFileIndex
+} from '../../src/main/services/download/serverFileIndex'
 import { validateRamLimits, clampRamMb } from '../../src/shared/ramValidation'
 import {
   elybySkinUrl,
@@ -28,32 +42,35 @@ import {
   windowsReleaseArtifactName
 } from '../../src/shared/releaseArtifacts'
 
-describe('preservePaths', () => {
+describe('syncRules / preservePaths', () => {
   it('normalizes separators', () => {
     expect(normalizeGameRelativePath('.\\config\\foo.json')).toBe('config/foo.json')
   })
 
-  it('marks player configs as mutable', () => {
+  it('protects options, config, user mods, logs, and saves', () => {
     expect(isPlayerMutablePath('options.txt')).toBe(true)
-    expect(isPlayerMutablePath('servers.dat')).toBe(true)
+    expect(isPlayerMutablePath('optionsshaders.txt')).toBe(true)
+    expect(isPlayerMutablePath('optionshaders.txt')).toBe(true)
     expect(isPlayerMutablePath('config/sodium-options.json')).toBe(true)
-    expect(isPlayerMutablePath('XaeroWaypoints/a.txt')).toBe(true)
+    expect(isPlayerMutablePath('config/yosbr/options.txt')).toBe(true)
+    expect(isPlayerMutablePath('mods/example.jar')).toBe(true)
+    expect(isPlayerMutablePath('logs/latest.log')).toBe(true)
+    expect(isPlayerMutablePath('saves/world/level.dat')).toBe(true)
   })
 
-  it('does not treat mods/jars as mutable', () => {
-    expect(isPlayerMutablePath('mods/example.jar')).toBe(false)
+  it('allows sync updates for pack content outside protected paths', () => {
+    expect(isPlayerMutablePath('servers.dat')).toBe(false)
     expect(isPlayerMutablePath('resourcepacks/pack.zip')).toBe(false)
-  })
-
-  it('force-verifies yosbr defaults', () => {
-    expect(isPlayerMutablePath('config/yosbr/options.txt')).toBe(false)
+    expect(isPlayerMutablePath('shaderpacks/pack.zip')).toBe(false)
+    expect(isPlayerMutablePath('datapacks/pack.zip')).toBe(false)
   })
 
   it('preserves only when enabled and file exists', () => {
     expect(shouldPreserveExistingFile('options.txt', true, true)).toBe(true)
     expect(shouldPreserveExistingFile('options.txt', false, true)).toBe(false)
     expect(shouldPreserveExistingFile('options.txt', true, false)).toBe(false)
-    expect(shouldPreserveExistingFile('mods/a.jar', true, true)).toBe(false)
+    expect(shouldPreserveExistingFile('mods/a.jar', true, true)).toBe(true)
+    expect(shouldPreserveExistingFile('resourcepacks/a.zip', true, true)).toBe(false)
   })
 })
 
@@ -328,32 +345,134 @@ describe('preserveBackup', () => {
   const os = require('os')
   const path = require('path')
 
-  it('backs up and restores mutable files only', async () => {
+  it('backs up and restores protected files including user mods', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-test-'))
     await fs.outputFile(path.join(root, 'options.txt'), 'lang:en_us')
     await fs.outputFile(path.join(root, 'config', 'demo.json'), '{"a":1}')
     await fs.outputFile(path.join(root, 'mods', 'demo.jar'), 'jar')
+    await fs.outputFile(path.join(root, 'resourcepacks', 'pack.zip'), 'pack')
+    await fs.outputFile(path.join(root, 'logs', 'latest.log'), 'log')
+    await fs.outputFile(path.join(root, 'saves', 'world', 'level.dat'), 'save')
 
     const entries = await backupPreservedFiles(root, true)
-    expect(entries.map((e) => e.relativePath).sort()).toEqual(['config/demo.json', 'options.txt'])
+    expect(entries.map((e) => e.relativePath).sort()).toEqual([
+      'config/demo.json',
+      'mods/demo.jar',
+      'options.txt'
+    ])
 
     await fs.writeFile(path.join(root, 'options.txt'), 'OVERWRITTEN')
     await fs.writeFile(path.join(root, 'config', 'demo.json'), 'OVERWRITTEN')
     await fs.writeFile(path.join(root, 'mods', 'demo.jar'), 'OVERWRITTEN')
+    await fs.outputFile(path.join(root, 'mods', 'forced-pack.jar'), 'forced')
 
     const restored = await restorePreservedFiles(entries)
-    expect(restored).toBe(2)
+    expect(restored).toBe(3)
     expect(await fs.readFile(path.join(root, 'options.txt'), 'utf8')).toBe('lang:en_us')
     expect(await fs.readFile(path.join(root, 'config', 'demo.json'), 'utf8')).toBe('{"a":1}')
-    expect(await fs.readFile(path.join(root, 'mods', 'demo.jar'), 'utf8')).toBe('OVERWRITTEN')
+    expect(await fs.readFile(path.join(root, 'mods', 'demo.jar'), 'utf8')).toBe('jar')
+
+    const purged = await removeUnbackedUserMods(root, entries)
+    expect(purged).toBe(1)
+    expect(await fs.pathExists(path.join(root, 'mods', 'forced-pack.jar'))).toBe(false)
+    expect(await fs.readFile(path.join(root, 'logs', 'latest.log'), 'utf8')).toBe('log')
+    expect(await fs.readFile(path.join(root, 'saves', 'world', 'level.dat'), 'utf8')).toBe('save')
+    expect(await fs.readFile(path.join(root, 'resourcepacks', 'pack.zip'), 'utf8')).toBe('pack')
 
     await fs.remove(root)
   })
 
-  it('skips backup when disabled', async () => {
+  it('skips config backup when preserve disabled but still protects options and mods', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-test-'))
     await fs.outputFile(path.join(root, 'options.txt'), 'x')
-    expect(await backupPreservedFiles(root, false)).toEqual([])
+    await fs.outputFile(path.join(root, 'config', 'a.json'), 'c')
+    await fs.outputFile(path.join(root, 'mods', 'u.jar'), 'm')
+    const entries = await backupPreservedFiles(root, false)
+    expect(entries.map((e) => e.relativePath).sort()).toEqual(['mods/u.jar', 'options.txt'])
     await fs.remove(root)
+  })
+})
+
+describe('serverFileIndex + orphan sync', () => {
+  const fs = require('fs-extra')
+  const os = require('os')
+  const path = require('path')
+
+  it('persists tracked paths per server', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-index-'))
+    await saveServerFileIndex(dataDir, 'Prominence', [
+      'instances/Prominence/config/a.json',
+      'common/mods/fabric/demo.jar'
+    ])
+    const loaded = await loadServerFileIndex(dataDir, 'Prominence')
+    expect(loaded?.trackedPaths).toEqual([
+      'common/mods/fabric/demo.jar',
+      'instances/Prominence/config/a.json'
+    ])
+    await fs.remove(dataDir)
+  })
+
+  it('deletes only previously tracked orphans outside immune folders', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-orphan-'))
+    const trackedGone = path.join(dataDir, 'instances', 'Prominence', 'resourcepacks', 'old.zip')
+    const untracked = path.join(dataDir, 'instances', 'Prominence', 'resourcepacks', 'mine.zip')
+    const immune = path.join(dataDir, 'instances', 'Prominence', 'saves', 'world', 'level.dat')
+    const userMod = path.join(dataDir, 'instances', 'Prominence', 'mods', 'user.jar')
+    await fs.outputFile(trackedGone, 'old')
+    await fs.outputFile(untracked, 'mine')
+    await fs.outputFile(immune, 'save')
+    await fs.outputFile(userMod, 'mod')
+
+    expect(isFullyImmunePath('saves/world/level.dat')).toBe(true)
+    expect(isUserModsPath('mods/user.jar')).toBe(true)
+    expect(canDeleteOrphanTrackedPath('resourcepacks/old.zip')).toBe(true)
+    expect(canDeleteOrphanTrackedPath('mods/user.jar')).toBe(false)
+    expect(instanceRelativePath('instances/Prominence/resourcepacks/old.zip', 'Prominence')).toBe(
+      'resourcepacks/old.zip'
+    )
+    expect(shouldSkipRemoteModule('instances/Prominence/mods/pack.jar', 'Prominence')).toBe(true)
+    expect(shouldSkipRemoteModule('instances/Prominence/logs/a.log', 'Prominence')).toBe(true)
+
+    const removed = await removeOrphanTrackedFiles({
+      dataDirectory: dataDir,
+      serverId: 'Prominence',
+      previousTrackedPaths: [
+        'instances/Prominence/resourcepacks/old.zip',
+        'instances/Prominence/saves/world/level.dat',
+        'instances/Prominence/mods/user.jar'
+      ],
+      currentTrackedPaths: new Set()
+    })
+
+    expect(removed).toBe(1)
+    expect(await fs.pathExists(trackedGone)).toBe(false)
+    expect(await fs.pathExists(untracked)).toBe(true)
+    expect(await fs.pathExists(immune)).toBe(true)
+    expect(await fs.pathExists(userMod)).toBe(true)
+
+    await fs.remove(dataDir)
+  })
+
+  it('collects Helios-style module paths', () => {
+    const dataDir = '/data'
+    const server = {
+      modules: [
+        {
+          getPath: () => '/data/common/mods/fabric/a.jar',
+          rawModule: { type: 'FabricMod' },
+          subModules: [
+            {
+              getPath: () => '/data/instances/Prominence/config/b.json',
+              rawModule: { type: 'File' }
+            }
+          ]
+        }
+      ]
+    }
+    const mods = collectDistributionModules(server, dataDir)
+    expect(mods.map((m) => m.relativePath).sort()).toEqual([
+      'common/mods/fabric/a.jar',
+      'instances/Prominence/config/b.json'
+    ])
   })
 })
