@@ -2,13 +2,17 @@ import os from 'os'
 import path from 'path'
 import { DEFAULT_DATA_DIR_NAME } from '../../shared/types'
 
+/**
+ * Default game data directory:
+ * - Unix-like (Linux/macOS): ~/.awesomelauncher
+ * - Windows: %APPDATA%\.awesomelauncher
+ */
 export function defaultDataDirectory(): string {
-  const sysRoot =
-    process.env.APPDATA ||
-    (process.platform === 'darwin'
-      ? path.join(os.homedir(), 'Library', 'Application Support')
-      : os.homedir())
-  return path.join(sysRoot, DEFAULT_DATA_DIR_NAME)
+  if (process.platform === 'win32') {
+    const root = process.env.APPDATA || os.homedir()
+    return path.join(root, DEFAULT_DATA_DIR_NAME)
+  }
+  return path.join(os.homedir(), DEFAULT_DATA_DIR_NAME)
 }
 
 export function commonDirectory(dataDirectory: string): string {
