@@ -124,6 +124,27 @@ export interface UpdateStatus {
   error: string | null
 }
 
+export type ModSource = 'user' | 'common'
+
+export interface ModInfo {
+  id: string
+  fileName: string
+  filePath: string
+  source: ModSource
+  enabled: boolean
+  name: string
+  version: string
+  description: string | null
+  authors: string[]
+  iconDataUrl: string | null
+}
+
+export interface ServerModsPayload {
+  serverId: string
+  userMods: ModInfo[]
+  commonMods: ModInfo[]
+}
+
 export const DISTRO_URL = 'https://files.awesome-craft.ru/launcher/distribution.json'
 export const NEWS_RSS_URL = 'https://files.awesome-craft.ru/launcher/news.rss'
 export const ELYBY_AUTH_URL = 'https://authserver.ely.by'
@@ -135,7 +156,7 @@ export const ELYBY_ACCOUNT_INFO_URL = 'https://account.ely.by/api/account/v1/inf
 export const ELYBY_DEVICE_VERIFY_URL = 'https://account.ely.by/code'
 /** Default public Ely.by OAuth client id (community launchers). */
 export const ELYBY_OAUTH_CLIENT_ID = 'ely'
-export const DEFAULT_DATA_DIR_NAME = '.awesomecraftlauncher'
+export const DEFAULT_DATA_DIR_NAME = '.awesomelauncher'
 
 export const IPC = {
   CONFIG_GET: 'config:get',
@@ -154,6 +175,9 @@ export const IPC = {
   INSTALL_LAUNCH: 'install:launch',
   INSTANCE_OPEN: 'instance:open',
   INSTANCE_DELETE: 'instance:delete',
+  MODS_LIST: 'mods:list',
+  MODS_SET_ENABLED: 'mods:set-enabled',
+  MODS_DELETE: 'mods:delete',
   GAME_STATE: 'game:state',
   GAME_LOGS: 'game:logs',
   GAME_KILL: 'game:kill',
@@ -167,6 +191,9 @@ export const IPC = {
   SYSTEM_LOCALE: 'system:locale',
   SYSTEM_MEMORY: 'system:memory',
   SHELL_OPEN_EXTERNAL: 'shell:open-external',
+  DESKTOP_SHORTCUT_STATUS: 'desktop:shortcut-status',
+  DESKTOP_SHORTCUT_INSTALL: 'desktop:shortcut-install',
+  DESKTOP_SHORTCUT_REMOVE: 'desktop:shortcut-remove',
   EVENT_PROGRESS: 'event:progress',
   EVENT_GAME_LOG: 'event:game-log',
   EVENT_GAME_STATE: 'event:game-state',

@@ -5,7 +5,9 @@ import type {
   DistroServerSummary,
   GameLogLine,
   GameProcessState,
+  ModInfo,
   ProgressEvent,
+  ServerModsPayload,
   ServerOnlineStatus,
   UpdateStatus
 } from '../shared/types'
@@ -24,6 +26,14 @@ export type DevicePollPayload =
   | { status: 'expired' }
   | { status: 'denied'; message: string }
   | { status: 'success'; account: unknown; refreshToken?: string; config: AppConfig }
+
+export interface DesktopShortcutStatus {
+  supported: boolean
+  installed: boolean
+  desktopPath: string
+  iconPath: string
+  execPath: string
+}
 
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.APP_VERSION),
@@ -65,6 +75,13 @@ const api = {
   deleteInstance: (serverId: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.INSTANCE_DELETE, serverId),
 
+  listMods: (serverId: string): Promise<ServerModsPayload> =>
+    ipcRenderer.invoke(IPC.MODS_LIST, serverId),
+  setModEnabled: (serverId: string, filePath: string, enabled: boolean): Promise<ModInfo> =>
+    ipcRenderer.invoke(IPC.MODS_SET_ENABLED, { serverId, filePath, enabled }),
+  deleteMod: (serverId: string, filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.MODS_DELETE, { serverId, filePath }),
+
   getGameState: (): Promise<GameProcessState> => ipcRenderer.invoke(IPC.GAME_STATE),
   getGameLogs: (): Promise<GameLogLine[]> => ipcRenderer.invoke(IPC.GAME_LOGS),
   killGame: (): Promise<GameProcessState> => ipcRenderer.invoke(IPC.GAME_KILL),
@@ -73,7 +90,14 @@ const api = {
   getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_STATUS),
   checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
   downloadUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_DOWNLOAD),
-  installUpdate: (): Promise<boolean> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+  installUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+
+  getDesktopShortcutStatus: (): Promise<DesktopShortcutStatus> =>
+    ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_STATUS),
+  installDesktopShortcut: (): Promise<DesktopShortcutStatus> =>
+    ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_INSTALL),
+  removeDesktopShortcut: (): Promise<DesktopShortcutStatus> =>
+    ipcRenderer.invoke(IPC.DESKTOP_SHORTCUT_REMOVE),
 
   onProgress: (cb: (event: ProgressEvent) => void): (() => void) => {
     const listener = (_: Electron.IpcRendererEvent, payload: ProgressEvent): void => cb(payload)

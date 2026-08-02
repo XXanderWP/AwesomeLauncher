@@ -17,6 +17,20 @@ import {
   resolveServerDisplayName,
   stripMotdFormatting
 } from '../../src/shared/serverDisplayName'
+import {
+  linuxDesktopFilePath,
+  linuxIconFilePath,
+  resolveLinuxExecPath
+} from '../../src/main/services/desktop/linuxDesktopShortcut'
+import {
+  buildMacPrivilegedUpdateScript,
+  compareVersions,
+  macArchLabel,
+  pickMacDmgAsset,
+  resolveMacAppBundlePath
+} from '../../src/main/services/updater/macManualUpdate'
+
+const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
 
 jest.mock('helios-core/mojang', () => ({
   getServerStatus: jest.fn(async () => ({
@@ -127,6 +141,83 @@ describe('serverDisplayName', () => {
   })
 })
 
+describe('nativeExtract', () => {
+  it('keeps natives under the temp dir even when zip entry has a leading slash', () => {
+    const dest = resolveNativeExtractPath('/tmp/natives', '/libglfw.so')
+    expect(dest).toBe(path.join('/tmp/natives', 'libglfw.so'))
+    expect(dest.startsWith('/tmp/natives')).toBe(true)
+  })
+
+  it('uses basename for nested zip entries', () => {
+    expect(resolveNativeExtractPath('/tmp/natives', 'linux/x64/liblwjgl.so')).toBe(
+      path.join('/tmp/natives', 'liblwjgl.so')
+    )
+    expect(resolveNativeExtractPath('/tmp/natives', '..')).toBeNull()
+  })
+})
+
+describe('linuxDesktopShortcut paths', () => {
+  it('prefers APPIMAGE env for Exec path', () => {
+    expect(resolveLinuxExecPath({ APPIMAGE: '/tmp/App.AppImage' }, '/usr/bin/electron')).toBe(
+      '/tmp/App.AppImage'
+    )
+    expect(resolveLinuxExecPath({}, '/usr/bin/electron')).toBe('/usr/bin/electron')
+  })
+
+  it('builds XDG applications and icon paths', () => {
+    expect(linuxDesktopFilePath('/home/demo')).toBe(
+      '/home/demo/.local/share/applications/ru.awesomecraft.launcher.desktop'
+    )
+    expect(linuxIconFilePath('/home/demo')).toContain(
+      '/home/demo/.local/share/icons/hicolor/256x256/apps/ru.awesomecraft.launcher.png'
+    )
+  })
+})
+
+describe('macManualUpdate helpers', () => {
+  it('compares versions and resolves arch / app path', () => {
+    expect(compareVersions('1.1.2', '1.1.1')).toBeGreaterThan(0)
+    expect(compareVersions('v1.0.0', '1.0.0')).toBe(0)
+    expect(compareVersions('1.0.0', '1.1.0')).toBeLessThan(0)
+    expect(macArchLabel('arm64')).toBe('arm64')
+    expect(macArchLabel('x64')).toBe('x64')
+    expect(
+      resolveMacAppBundlePath(
+        '/Applications/AwesomeCraftLauncher.app/Contents/MacOS/AwesomeCraftLauncher'
+      )
+    ).toBe('/Applications/AwesomeCraftLauncher.app')
+  })
+
+  it('picks the arch-specific DMG asset', () => {
+    const assets = [
+      {
+        name: 'AwesomeLauncher-x64.dmg',
+        browser_download_url: 'https://example.com/x64.dmg'
+      },
+      {
+        name: 'AwesomeLauncher-arm64.dmg',
+        browser_download_url: 'https://example.com/arm64.dmg'
+      }
+    ]
+    expect(pickMacDmgAsset(assets, '1.1.2', 'arm64')?.browser_download_url).toContain('arm64')
+    expect(pickMacDmgAsset(assets, '1.1.2', 'x64')?.name).toContain('x64')
+  })
+
+  it('builds a privileged install script with download, replace, and xattr', () => {
+    const script = buildMacPrivilegedUpdateScript({
+      dmgUrl: 'https://example.com/app.dmg',
+      appPath: '/Applications/AwesomeCraftLauncher.app'
+    })
+    expect(script).toContain("URL='https://example.com/app.dmg'")
+    expect(script).toContain('curl -fL')
+    expect(script).toContain('hdiutil attach')
+    expect(script).toContain('ditto')
+    expect(script).toContain('xattr -dr com.apple.quarantine')
+    expect(script).not.toContain('with administrator privileges')
+    expect(script).toContain('open "$APP_DEST"')
+  })
+})
+
 describe('path helpers and constants', () => {
   it('builds data subdirectories', () => {
     expect(commonDirectory('/data')).toBe(path.join('/data', 'common'))
@@ -135,7 +226,10 @@ describe('path helpers and constants', () => {
       path.join('/data', 'instances', 'Prominence')
     )
     expect(javaDirectory('/data')).toBe(path.join('/data', 'java'))
+    expect(DEFAULT_DATA_DIR_NAME).toBe('.awesomelauncher')
     expect(defaultDataDirectory()).toContain(DEFAULT_DATA_DIR_NAME)
+    expect(defaultDataDirectory()).not.toContain('helioslauncher')
+    expect(defaultDataDirectory()).not.toContain('awesomecraftlauncher')
   })
 
   it('exposes remote constants', () => {

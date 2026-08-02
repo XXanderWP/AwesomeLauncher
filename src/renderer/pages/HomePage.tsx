@@ -10,6 +10,7 @@ import type {
 import { resolveServerDisplayName } from '@shared/serverDisplayName'
 import { t } from '../i18n'
 import { InstanceJavaModal } from '../components/InstanceJavaModal'
+import { InstanceModsModal } from '../components/InstanceModsModal'
 import { ElybyAccountCard } from '../components/ElybyAccountCard'
 
 interface Props {
@@ -48,7 +49,9 @@ export function HomePage({
   const selectedId = config.selectedServerId || servers[0]?.id
   const busy = progress.phase !== 'idle' && progress.phase !== 'launch'
   const [javaServerId, setJavaServerId] = useState<string | null>(null)
+  const [modsServerId, setModsServerId] = useState<string | null>(null)
   const javaServer = servers.find((s) => s.id === javaServerId) || null
+  const modsServer = servers.find((s) => s.id === modsServerId) || null
 
   async function openFolder(serverId: string): Promise<void> {
     await window.awesomeAPI.openInstanceFolder(serverId)
@@ -142,6 +145,15 @@ export function HomePage({
                       className="btn btn-sm"
                       onClick={(e) => {
                         e.stopPropagation()
+                        setModsServerId(server.id)
+                      }}
+                    >
+                      {t('instance.mods')}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setJavaServerId(server.id)
                       }}
                     >
@@ -206,6 +218,22 @@ export function HomePage({
         packMax={javaServer?.java.ram.recommended}
         onClose={() => setJavaServerId(null)}
         onSaved={onConfigChange}
+      />
+
+      <InstanceModsModal
+        open={Boolean(modsServer)}
+        serverId={modsServer?.id || ''}
+        serverName={
+          modsServer
+            ? resolveServerDisplayName(
+                modsServer.name,
+                statuses[modsServer.id]?.description,
+                config.cachedServerNames[modsServer.id]
+              )
+            : ''
+        }
+        gameRunning={gameState.running}
+        onClose={() => setModsServerId(null)}
       />
     </div>
   )

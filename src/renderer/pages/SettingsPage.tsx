@@ -4,10 +4,19 @@ import { validateRamLimits } from '@shared/ramValidation'
 import { t } from '../i18n'
 import { RamSliderField } from '../components/RamSliderField'
 
+interface DesktopShortcutStatus {
+  supported: boolean
+  installed: boolean
+  desktopPath: string
+  iconPath: string
+  execPath: string
+}
+
 interface Props {
   config: AppConfig
   updateStatus: UpdateStatus | null
   totalMemoryMb: number
+  platform: NodeJS.Platform | string
   onChange: (partial: Record<string, unknown>) => void | Promise<void>
   onBrowseDataDir: () => void | Promise<void>
   onPreviewLanguage: (language: LanguageSetting) => void | Promise<void>
@@ -17,6 +26,7 @@ export function SettingsPage({
   config,
   updateStatus,
   totalMemoryMb,
+  platform,
   onChange,
   onBrowseDataDir,
   onPreviewLanguage
@@ -24,10 +34,26 @@ export function SettingsPage({
   const [draft, setDraft] = useState(config)
   const [saved, setSaved] = useState(false)
   const java = draft.javaDefaults
+  const isLinux = platform === 'linux'
+  const [shortcut, setShortcut] = useState<DesktopShortcutStatus | null>(null)
+  const [shortcutBusy, setShortcutBusy] = useState(false)
+  const [shortcutError, setShortcutError] = useState<string | null>(null)
+  const isMac = platform === 'darwin'
 
   useEffect(() => {
     setDraft(config)
   }, [config])
+
+  useEffect(() => {
+    if (!isLinux) return
+    let cancelled = false
+    void window.awesomeAPI.getDesktopShortcutStatus().then((status) => {
+      if (!cancelled) setShortcut(status)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isLinux])
 
   const validation = useMemo(
     () => validateRamLimits(java.minRamMb, java.maxRamMb, totalMemoryMb),
@@ -63,6 +89,21 @@ export function SettingsPage({
       }
     })
     await onPreviewLanguage(language)
+  }
+
+  async function toggleLinuxShortcut(): Promise<void> {
+    setShortcutBusy(true)
+    setShortcutError(null)
+    try {
+      const next = shortcut?.installed
+        ? await window.awesomeAPI.removeDesktopShortcut()
+        : await window.awesomeAPI.installDesktopShortcut()
+      setShortcut(next)
+    } catch (err) {
+      setShortcutError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setShortcutBusy(false)
+    }
   }
 
   return (
@@ -283,31 +324,58 @@ export function SettingsPage({
         </label>
       </section>
 
+      {isLinux && (
+        <section className="field">
+          <h2>{t('settings.desktopShortcut')}</h2>
+          <p className="hint">{t('settings.desktopShortcut.hint')}</p>
+          <div className="actions">
+            <button
+              className="btn btn-sm primary"
+              type="button"
+              disabled={shortcutBusy}
+              onClick={() => void toggleLinuxShortcut()}
+            >
+              {shortcut?.installed
+                ? t('settings.desktopShortcut.remove')
+                : t('settings.desktopShortcut.add')}
+            </button>
+          </div>
+          {shortcut?.installed && (
+            <div className="hint">{t('settings.desktopShortcut.installed')}</div>
+          )}
+          {shortcutError && <div className="error-box">{shortcutError}</div>}
+        </section>
+      )}
+
       <section className="field">
         <h2>{t('settings.updates')}</h2>
-        <label className="field">
-          {t('settings.updateMode')}
-          <select
-            value={draft.settings.launcher.updateMode}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                settings: {
-                  ...draft.settings,
-                  launcher: {
-                    ...draft.settings.launcher,
-                    updateMode: e.target.value as AppConfig['settings']['launcher']['updateMode']
+        {isMac ? (
+          <p className="hint">{t('settings.macUpdateHint')}</p>
+        ) : (
+          <label className="field">
+            {t('settings.updateMode')}
+            <select
+              value={draft.settings.launcher.updateMode}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  settings: {
+                    ...draft.settings,
+                    launcher: {
+                      ...draft.settings.launcher,
+                      updateMode: e.target.value as AppConfig['settings']['launcher']['updateMode']
+                    }
                   }
-                }
-              })
-            }
-          >
-            <option value="auto-install-on-quit">{t('settings.updateMode.autoInstall')}</option>
-            <option value="auto-download-manual-install">
-              {t('settings.updateMode.manualInstall')}
-            </option>
-          </select>
-        </label>
+                })
+              }
+            >
+              <option value="auto-install-on-quit">{t('settings.updateMode.autoInstall')}</option>
+              <option value="auto-download-manual-install">
+                {t('settings.updateMode.manualInstall')}
+              </option>
+            </select>
+          </label>
+        )}
         <label className="check">
           <input
             type="checkbox"
@@ -335,28 +403,36 @@ export function SettingsPage({
           >
             {t('settings.checkUpdate')}
           </button>
-          <button
-            className="btn btn-sm"
-            type="button"
-            disabled={!updateStatus?.available || updateStatus.downloaded}
-            onClick={() => void window.awesomeAPI.downloadUpdate()}
-          >
-            {t('settings.downloadUpdate')}
-          </button>
+          {!isMac && (
+            <button
+              className="btn btn-sm"
+              type="button"
+              disabled={!updateStatus?.available || updateStatus.downloaded}
+              onClick={() => void window.awesomeAPI.downloadUpdate()}
+            >
+              {t('settings.downloadUpdate')}
+            </button>
+          )}
           <button
             className="btn btn-sm primary"
             type="button"
-            disabled={!updateStatus?.downloaded}
+            disabled={
+              isMac
+                ? !updateStatus?.available || Boolean(updateStatus.downloading)
+                : !updateStatus?.downloaded
+            }
             onClick={() => void window.awesomeAPI.installUpdate()}
           >
-            {t('settings.installUpdate')}
+            {isMac ? t('settings.installUpdateMac') : t('settings.installUpdate')}
           </button>
         </div>
-        {updateStatus?.info && (
+        {(updateStatus?.info || updateStatus?.error) && (
           <div className="hint">
-            {updateStatus.info.version}
-            {updateStatus.downloading ? ` · ${updateStatus.progress}%` : ''}
-            {updateStatus.downloaded ? ' · ready' : ''}
+            {updateStatus.info?.version || ''}
+            {updateStatus.downloading
+              ? ` · ${isMac ? t('settings.macInstalling') : `${updateStatus.progress}%`}`
+              : ''}
+            {!isMac && updateStatus.downloaded ? ' · ready' : ''}
             {updateStatus.error ? ` · ${updateStatus.error}` : ''}
           </div>
         )}

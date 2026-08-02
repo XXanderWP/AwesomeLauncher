@@ -1,6 +1,7 @@
 appId: ru.awesomecraft.launcher
 productName: AwesomeCraftLauncher
-artifactName: ${productName}-setup-${version}.${ext}
+# Stable download names (version is in the GitHub release tag, not the filename).
+artifactName: AwesomeLauncher.${ext}
 copyright: Copyright © 2026 AwesomeCraft
 
 asar: true
@@ -25,6 +26,8 @@ extraResources:
     to: mac
     filter:
       - '**/*'
+  - from: build/icon.png
+    to: icon.png
 
 win:
   target:
@@ -43,7 +46,8 @@ nsis:
 
 mac:
   target:
-    # DMG for manual install; ZIP required by electron-updater (Squirrel.Mac).
+    # Unsigned builds cannot use Squirrel.Mac auto-update. Ship DMG only;
+    # the launcher installs updates manually via privileged osascript.
     - target: dmg
       arch:
         - x64
@@ -52,7 +56,7 @@ mac:
       arch:
         - x64
         - arm64
-  artifactName: ${productName}-setup-${version}-${arch}.${ext}
+  artifactName: AwesomeLauncher-${arch}.${ext}
   category: public.app-category.games
   icon: build/icon.png
   darkModeSupport: true

@@ -5,6 +5,7 @@ import { join } from 'path'
 import { ConfigService } from './services/config/ConfigService'
 import { DistroService } from './services/distro/DistroService'
 import { InstallService } from './services/download/InstallService'
+import { ModsService } from './services/mods/ModsService'
 import { GameService } from './services/game/GameService'
 import { UpdaterService } from './services/updater/UpdaterService'
 import {
@@ -19,6 +20,11 @@ import {
   enrichAccountWithElyId
 } from './services/auth/elybyDeviceCode'
 import { fetchServerStatus } from './services/server-status/serverStatus'
+import {
+  getLinuxShortcutStatus,
+  installLinuxDesktopShortcut,
+  removeLinuxDesktopShortcut
+} from './services/desktop/linuxDesktopShortcut'
 import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
 import { bytesToMb } from '../shared/ramValidation'
@@ -28,6 +34,7 @@ let mainWindow: BrowserWindow | null = null
 let configService: ConfigService
 let distroService: DistroService
 let installService: InstallService
+let modsService: ModsService
 let gameService: GameService
 let updaterService: UpdaterService
 let activeDeviceCode: string | null = null
@@ -212,6 +219,25 @@ function registerIpc(): void {
     return true
   })
 
+  ipcMain.handle(IPC.MODS_LIST, async (_e, serverId: string) => {
+    return modsService.listMods(serverId)
+  })
+  ipcMain.handle(
+    IPC.MODS_SET_ENABLED,
+    async (_e, payload: { serverId: string; filePath: string; enabled: boolean }) => {
+      if (gameService.getState().running) {
+        throw new Error('Stop the game before changing mods')
+      }
+      return modsService.setUserModEnabled(payload.serverId, payload.filePath, payload.enabled)
+    }
+  )
+  ipcMain.handle(IPC.MODS_DELETE, async (_e, payload: { serverId: string; filePath: string }) => {
+    if (gameService.getState().running) {
+      throw new Error('Stop the game before deleting mods')
+    }
+    return modsService.deleteUserMod(payload.serverId, payload.filePath)
+  })
+
   ipcMain.handle(IPC.GAME_STATE, () => gameService.getState())
   ipcMain.handle(IPC.GAME_LOGS, () => gameService.getLogs())
   ipcMain.handle(IPC.GAME_KILL, () => gameService.kill())
@@ -227,6 +253,10 @@ function registerIpc(): void {
     updaterService.install()
     return true
   })
+
+  ipcMain.handle(IPC.DESKTOP_SHORTCUT_STATUS, () => getLinuxShortcutStatus())
+  ipcMain.handle(IPC.DESKTOP_SHORTCUT_INSTALL, () => installLinuxDesktopShortcut())
+  ipcMain.handle(IPC.DESKTOP_SHORTCUT_REMOVE, () => removeLinuxDesktopShortcut())
 }
 
 app.whenReady().then(async () => {
@@ -243,6 +273,7 @@ app.whenReady().then(async () => {
 
   distroService = new DistroService(configService)
   installService = new InstallService(configService, distroService)
+  modsService = new ModsService(configService, distroService)
   gameService = new GameService(configService, distroService, installService)
   updaterService = new UpdaterService(configService)
 

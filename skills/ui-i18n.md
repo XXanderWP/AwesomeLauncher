@@ -4,6 +4,7 @@
 
 - React pages: Login, Home (account card + server list), Settings, Logs
 - Home shows a dedicated Ely.by account block: avatar (rendered from skinsystem skin), nickname, UUID snippet, Open profile / Manage account / Log out
+- Per-server actions include Mods modal (`InstanceModsModal`): user jars first (toggle via `.disabled`, delete with confirm), then required common/pack mods (no controls)
 - Dark theme CSS variables in `src/renderer/styles/global.css`
 - Border radius token: `5px`
 - Branding logo: `src/renderer/assets/logo.png` (from legacy AwesomeCraft assets)

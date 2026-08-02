@@ -162,7 +162,7 @@ export class GameService {
     child.on('error', (err) => {
       this.pushLog('system', `Process error: ${err.message}`)
     })
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       this.state = {
         running: false,
         pid: null,
@@ -170,7 +170,11 @@ export class GameService {
         exitCode: code
       }
       this.child = null
-      this.pushLog('system', `Minecraft exited with code ${code}`)
+      if (signal) {
+        this.pushLog('system', `Minecraft exited from signal ${signal} (code ${code})`)
+      } else {
+        this.pushLog('system', `Minecraft exited with code ${code}`)
+      }
       this.emitState()
     })
   }
