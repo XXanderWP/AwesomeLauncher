@@ -119,6 +119,13 @@ class ProcessBuilder {
     loggableArgs[loggableArgs.findIndex((x) => x === this.authUser.accessToken)] = '**********'
 
     logger.info('Launch Arguments:', loggableArgs)
+    // Re-apply host sanitizer in case something restored Cursor mounts.
+    try {
+      const { sanitizeLauncherProcessEnv } = require('./launchEnv')
+      sanitizeLauncherProcessEnv()
+    } catch (_) {
+      /* ignore */
+    }
     const launchEnv = buildMinecraftProcessEnv()
     if (process.platform === 'linux') {
       const glSummary = [

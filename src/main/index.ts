@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import fs from 'fs-extra'
 import os from 'os'
@@ -30,6 +31,19 @@ import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
 import { bytesToMb } from '../shared/ramValidation'
 import { instanceDirectory } from './utils/paths'
+
+// Strip Cursor / foreign AppImage LD_LIBRARY_PATH from the host before any spawn.
+// Runtime file lives in out/launch/ (copied by copy-launch-assets), next to out/main/.
+const requireLaunch = createRequire(__filename)
+const { sanitizeLauncherProcessEnv } = requireLaunch(join(__dirname, '../launch/launchEnv.js')) as {
+  sanitizeLauncherProcessEnv: () => { changed: boolean; ldLibraryPath: string | null }
+}
+const hostEnvSanitized = sanitizeLauncherProcessEnv()
+if (hostEnvSanitized.changed) {
+  console.log(
+    `[Launcher] Sanitized host LD_LIBRARY_PATH=${hostEnvSanitized.ldLibraryPath || '(cleared)'}`
+  )
+}
 
 let mainWindow: BrowserWindow | null = null
 let configService: ConfigService

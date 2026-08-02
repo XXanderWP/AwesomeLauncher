@@ -48,21 +48,21 @@ makes Node `path.join` discard the natives directory on Linux and write to the f
 
 ## Linux NVIDIA / GLFW
 
-On Linux Minecraft is spawned with a **whitelisted** environment (not a full copy of the
-launcher/`process.env`). That drops AppImage/Cursor/`ELECTRON_*`/`APPDIR` pollution and
-forces:
+On Linux:
 
-- `__GL_THREADED_OPTIMIZATIONS=0`
-- `GLFW_PLATFORM=x11`, `GDK_BACKEND=x11`, `XDG_SESSION_TYPE=x11`, `QT_QPA_PLATFORM=xcb`
-- no `WAYLAND_DISPLAY`
-- sanitized `PATH` / `LD_LIBRARY_PATH` (no `/.mount_*`)
+1. **Host sanitizer** (`sanitizeLauncherProcessEnv`) runs at Electron main startup and
+   rewrites `process.env.LD_LIBRARY_PATH` / `PATH`: drops Cursor and other foreign
+   `/tmp/.mount_*` entries, but keeps this app’s own `APPDIR` mount for packaged builds.
+2. **Minecraft spawn** uses a **whitelisted** env (not a full `process.env` copy): no
+   `LD_LIBRARY_PATH`, no `APPDIR`/`ELECTRON_*`, forces X11 + `__GL_THREADED_OPTIMIZATIONS=0`.
 
 Without this, NVIDIA (esp. under Wayland/XWayland) often SIGSEGVs in
-`glfwWaitEventsTimeout` / `org.lwjgl.system.JNI`. The same crash appears from the old
-AwesomeCraft AppImage when its mount `LD_LIBRARY_PATH` reaches the JVM.
+`glfwWaitEventsTimeout` / `org.lwjgl.system.JNI` when the launcher was started from a
+Cursor AppImage terminal.
 
 Each launch writes `instances/<id>/.launcher-env.log` and prints
-`[ProcessBuilder] Linux GL env: ...` to the terminal.
+`[ProcessBuilder] Linux GL env: ...` (and `[Launcher] Sanitized host LD_LIBRARY_PATH=...`
+when the host env changed).
 
 Launch helpers are copied to `out/launch/` on `dev`/`build`/`preview`. Restart the launcher
 after changing them — Electron caches `require()`.

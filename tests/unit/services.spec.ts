@@ -31,7 +31,10 @@ import {
 } from '../../src/main/services/updater/macManualUpdate'
 
 const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
-const { buildMinecraftProcessEnv } = require('../../src/main/services/launch/launchEnv.js')
+const {
+  buildMinecraftProcessEnv,
+  sanitizeLauncherProcessEnv
+} = require('../../src/main/services/launch/launchEnv.js')
 
 jest.mock('helios-core/mojang', () => ({
   getServerStatus: jest.fn(async () => ({
@@ -182,16 +185,29 @@ describe('launchEnv', () => {
     expect(env.WAYLAND_DISPLAY).toBeUndefined()
     expect(env.APPDIR).toBeUndefined()
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined()
-    expect(env.LD_LIBRARY_PATH).toBe('/usr/lib')
+    expect(env.LD_LIBRARY_PATH).toBeUndefined()
     expect(env.PATH).not.toContain('.mount_')
     expect(env.PATH).toContain('/usr/bin')
   })
 
-  it('drops LD_LIBRARY_PATH when only bundled mount paths remain', () => {
-    const env = buildMinecraftProcessEnv(
-      { HOME: '/home/demo', DISPLAY: ':0', LD_LIBRARY_PATH: '/tmp/.mount_Foo/usr/lib/' },
-      'linux'
-    )
+  it('strips foreign Cursor mounts from the host launcher env', () => {
+    const env: Record<string, string | undefined> = {
+      APPDIR: '/tmp/.mount_AwesomABC',
+      LD_LIBRARY_PATH: '/tmp/.mount_CursorkgdGBD/usr/lib:/tmp/.mount_AwesomABC/usr/lib:/usr/lib',
+      PATH: '/tmp/.mount_CursorkgdGBD/usr/bin:/tmp/.mount_AwesomABC/usr/bin:/usr/bin'
+    }
+    const result = sanitizeLauncherProcessEnv(env, 'linux')
+    expect(result.changed).toBe(true)
+    expect(env.LD_LIBRARY_PATH).toBe('/tmp/.mount_AwesomABC/usr/lib:/usr/lib')
+    expect(env.PATH).not.toContain('Cursor')
+    expect(env.PATH).toContain('/tmp/.mount_AwesomABC/usr/bin')
+  })
+
+  it('clears host LD_LIBRARY_PATH when only foreign mounts remain', () => {
+    const env: Record<string, string | undefined> = {
+      LD_LIBRARY_PATH: '/tmp/.mount_CursorkgdGBD/usr/lib/'
+    }
+    sanitizeLauncherProcessEnv(env, 'linux')
     expect(env.LD_LIBRARY_PATH).toBeUndefined()
   })
 
