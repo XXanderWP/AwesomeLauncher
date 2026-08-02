@@ -6,6 +6,10 @@ This repository is the **AwesomeCraft** Minecraft launcher (Electron + TypeScrip
 
 Desktop launcher for AwesomeCraft projects. It authenticates players via **Ely.by**, downloads vanilla Minecraft + Fabric pack files from `files.awesome-craft.ru`, launches the game with `authlib-injector`, and supports multi-server UI (currently Prominence™ II: Hasturian Era).
 
+## License
+
+MIT — see `LICENSE`.
+
 ## Stack
 
 - Electron + electron-vite

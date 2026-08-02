@@ -83,3 +83,7 @@ npm run dist:mac
 ### Agent docs
 
 Read `AGENT.md` and keep `skills/*.md` + README translations up to date when behavior changes.
+
+## License
+
+MIT — see [LICENSE](../LICENSE).

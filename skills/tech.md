@@ -1,5 +1,9 @@
 # Tech stack and architecture
 
+## License
+
+MIT (`LICENSE`, also declared in `package.json`)
+
 ## Runtime
 
 - Node 22+

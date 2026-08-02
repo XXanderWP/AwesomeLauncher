@@ -83,3 +83,7 @@ npm run dist:mac
 ### Документація для агентів
 
 Дивіться `AGENT.md`. Після змін оновлюйте `skills/*.md` і README.
+
+## Ліцензія
+
+MIT — див. [LICENSE](../LICENSE).

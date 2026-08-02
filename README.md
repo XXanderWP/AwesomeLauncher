@@ -20,3 +20,4 @@ Each localized document is split into:
 - Releases: https://github.com/XXanderWP/AwesomeLauncher/releases
 - Agent guide: [AGENT.md](AGENT.md)
 - Skills: [skills/](skills/)
+- License: [MIT](LICENSE)
