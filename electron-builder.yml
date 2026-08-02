@@ -1,0 +1,83 @@
+appId: ru.awesomecraft.launcher
+productName: AwesomeCraftLauncher
+artifactName: ${productName}-setup-${version}.${ext}
+copyright: Copyright © 2026 AwesomeCraft
+
+asar: true
+compression: maximum
+
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!tests/*'
+  - '!docs/*'
+  - '!skills/*'
+  - '!AGENT.md'
+  - '!.github/*'
+  - '!{.eslintignore,.eslintrc*,eslint.config.*,.prettier*,tsconfig*,electron.vite.config.*}'
+  - '!{dev-app-update.yml,.nvmrc,.npmrc}'
+  - '!{README.md,README.*.md}'
+
+extraResources:
+  - from: resources/libraries
+    to: libraries
+  - from: resources/mac
+    to: mac
+    filter:
+      - '**/*'
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: ${productName}-setup-${version}-${arch}.${ext}
+  category: public.app-category.games
+  icon: build/icon.png
+  darkModeSupport: true
+  extraFiles:
+    - from: resources/mac/QUARANTINE-README.txt
+      to: QUARANTINE-README.txt
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+linux:
+  target:
+    - AppImage
+  category: Game
+  synopsis: AwesomeCraft Minecraft Launcher
+  description: Custom launcher for AwesomeCraft Minecraft servers.
+  icon: build/icon.png
+  maintainer: AwesomeCraft
+
+directories:
+  buildResources: build
+  output: dist
+
+publish:
+  provider: github
+  owner: XXanderWP
+  repo: AwesomeLauncher
