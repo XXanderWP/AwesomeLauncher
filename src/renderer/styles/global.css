@@ -138,7 +138,9 @@ a {
   color: var(--text-1);
   padding: 0;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .titlebar-btn:hover {
@@ -161,7 +163,12 @@ a {
   isolation: isolate;
   overflow: hidden;
   background:
-    linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.28) 45%, rgba(0, 0, 0, 0.18) 100%),
+    linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.72) 0%,
+      rgba(0, 0, 0, 0.28) 45%,
+      rgba(0, 0, 0, 0.18) 100%
+    ),
     var(--app-wallpaper, none) center / cover no-repeat;
 }
 
@@ -312,7 +319,12 @@ a {
   place-items: center;
   padding: 22px;
   background:
-    linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.28) 45%, rgba(0, 0, 0, 0.18) 100%),
+    linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.72) 0%,
+      rgba(0, 0, 0, 0.28) 45%,
+      rgba(0, 0, 0, 0.18) 100%
+    ),
     var(--app-wallpaper, none) center / cover no-repeat;
   opacity: 1;
   transition: opacity 500ms ease;
