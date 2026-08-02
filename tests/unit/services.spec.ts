@@ -31,6 +31,7 @@ import {
 } from '../../src/main/services/updater/macManualUpdate'
 
 const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
+const { buildMinecraftProcessEnv } = require('../../src/main/services/launch/launchEnv.js')
 
 jest.mock('helios-core/mojang', () => ({
   getServerStatus: jest.fn(async () => ({
@@ -153,6 +154,24 @@ describe('nativeExtract', () => {
       path.join('/tmp/natives', 'liblwjgl.so')
     )
     expect(resolveNativeExtractPath('/tmp/natives', '..')).toBeNull()
+  })
+})
+
+describe('launchEnv', () => {
+  it('disables NVIDIA threaded GL optimizations on Linux by default', () => {
+    const env = buildMinecraftProcessEnv({ PATH: '/usr/bin', HOME: '/home/demo' }, 'linux')
+    expect(env.__GL_THREADED_OPTIMIZATIONS).toBe('0')
+    expect(env.PATH).toBe('/usr/bin')
+  })
+
+  it('preserves an explicit user override', () => {
+    const env = buildMinecraftProcessEnv({ __GL_THREADED_OPTIMIZATIONS: '1' }, 'linux')
+    expect(env.__GL_THREADED_OPTIMIZATIONS).toBe('1')
+  })
+
+  it('does not set the workaround on non-Linux platforms', () => {
+    const env = buildMinecraftProcessEnv({ PATH: '/usr/bin' }, 'win32')
+    expect(env.__GL_THREADED_OPTIMIZATIONS).toBeUndefined()
   })
 })
 

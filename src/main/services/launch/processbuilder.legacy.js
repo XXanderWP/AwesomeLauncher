@@ -9,6 +9,7 @@ const os = require('os')
 const path = require('path')
 
 const { LegacyConfigBridge: ConfigManager, getAuthlibInjectorJarPath } = require('./launchBridge')
+const { buildMinecraftProcessEnv } = require('./launchEnv')
 const ElybyPaths = {
   getAuthlibInjectorJarPath,
   isAuthlibInjectorAvailable: () => require('fs-extra').pathExistsSync(getAuthlibInjectorJarPath())
@@ -123,7 +124,8 @@ class ProcessBuilder {
       args,
       {
         cwd: this.gameDir,
-        detached: ConfigManager.getLaunchDetached()
+        detached: ConfigManager.getLaunchDetached(),
+        env: buildMinecraftProcessEnv()
       }
     )
 

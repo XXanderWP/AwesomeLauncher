@@ -30,7 +30,7 @@ Current server example:
 | Never tracked locally | Leave alone (player-added files stay) |
 | `logs/`, `saves/` | Full immunity — sync never walks, restores, or deletes |
 | Instance `mods/` | User mods — never synced; protect + purge forced installs |
-| `config/` | Download if missing; **do not** overwrite when already present |
+| `config/` | Download if missing; **do not** overwrite when already present (except pack metadata like `config/crash_assistant/modlist.json`) |
 | Other folders (`resourcepacks`, `shaderpacks`, `datapacks`, `common/mods`, …) | Re-download when remote hash changes |
 | `options.txt`, `optionsshaders.txt`, `optionshaders.txt` | Never overwrite when present |
 
@@ -45,6 +45,12 @@ LWJGL/OpenGL natives are unzipped into a temp natives directory **synchronously*
 Destination file names use `path.basename(entry)` only. Using a zip entry path that starts with `/`
 makes Node `path.join` discard the natives directory on Linux and write to the filesystem root
 (or fail), which then crashes Minecraft with `SIGSEGV` in `org.lwjgl.system.JNI`.
+
+## Linux NVIDIA / GLFW
+
+On Linux the Minecraft process is spawned with `__GL_THREADED_OPTIMIZATIONS=0` unless the user
+already set that variable. Without it, NVIDIA drivers (especially under Wayland) often SIGSEGV in
+`glfwWaitEventsTimeout` / `org.lwjgl.system.JNI` after the title screen loads.
 
 ## Game session UX
 

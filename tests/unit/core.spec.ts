@@ -63,6 +63,8 @@ describe('syncRules / preservePaths', () => {
     expect(isPlayerMutablePath('resourcepacks/pack.zip')).toBe(false)
     expect(isPlayerMutablePath('shaderpacks/pack.zip')).toBe(false)
     expect(isPlayerMutablePath('datapacks/pack.zip')).toBe(false)
+    // Pack metadata: expected loader/mod set must follow distribution updates.
+    expect(isPlayerMutablePath('config/crash_assistant/modlist.json')).toBe(false)
   })
 
   it('preserves only when enabled and file exists', () => {

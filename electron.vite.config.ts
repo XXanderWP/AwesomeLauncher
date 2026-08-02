@@ -12,7 +12,7 @@ export default defineConfig({
         }
       },
       commonjsOptions: {
-        include: [/node_modules/, /launchBridge/, /processbuilder/],
+        include: [/node_modules/, /launchBridge/, /processbuilder/, /launchEnv/, /nativeExtract/],
         transformMixedEsModules: true
       }
     }

@@ -10,6 +10,7 @@ export {
   isFullyImmunePath,
   isUserModsPath,
   isConfigPath,
+  isPackManagedConfigPath,
   isNeverOverwriteFile,
   canDeleteOrphanTrackedPath,
   FULLY_IMMUNE_DIRS,

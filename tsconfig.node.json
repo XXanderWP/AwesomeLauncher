@@ -8,6 +8,7 @@
     "tests/**/*"
   ],
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "composite": true,
     "allowJs": true,
     "types": ["node", "jest"],

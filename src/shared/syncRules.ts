@@ -6,7 +6,8 @@
  *   (only if they were previously tracked as server-managed).
  * - logs/ and saves/ are fully immune.
  * - instance mods/ is user mods — never touched.
- * - config/ is kept if already present (no overwrite on remote hash change).
+ * - config/ is kept if already present (no overwrite on remote hash change),
+ *   except pack-managed metadata files listed below.
  * - options.txt / optionsshaders.txt are never overwritten when present.
  */
 
@@ -21,6 +22,12 @@ export const FULLY_IMMUNE_DIRS = ['logs', 'saves'] as const
 export const USER_MODS_DIR = 'mods'
 
 const NEVER_OVERWRITE_FILES = new Set(['options.txt', 'optionsshaders.txt', 'optionshaders.txt'])
+
+/**
+ * Pack-owned files under config/ that must track the distribution (hash updates apply).
+ * Crash Assistant's modlist encodes the expected loader/mod set and is not player settings.
+ */
+const PACK_MANAGED_CONFIG_FILES = new Set(['config/crash_assistant/modlist.json'])
 
 export function isUnderDirectory(relativePath: string, dirName: string): boolean {
   const path = normalizeGameRelativePath(relativePath)
@@ -40,6 +47,10 @@ export function isConfigPath(relativePath: string): boolean {
   return isUnderDirectory(relativePath, 'config')
 }
 
+export function isPackManagedConfigPath(relativePath: string): boolean {
+  return PACK_MANAGED_CONFIG_FILES.has(normalizeGameRelativePath(relativePath))
+}
+
 export function isNeverOverwriteFile(relativePath: string): boolean {
   const path = normalizeGameRelativePath(relativePath)
   return NEVER_OVERWRITE_FILES.has(path)
@@ -54,6 +65,7 @@ export function shouldProtectExistingFromOverwrite(relativePath: string): boolea
   if (!path) return false
   if (isFullyImmunePath(path) || isUserModsPath(path)) return true
   if (isNeverOverwriteFile(path)) return true
+  if (isPackManagedConfigPath(path)) return false
   if (isConfigPath(path)) return true
   return false
 }

@@ -12,6 +12,7 @@ async function main() {
   )
   await fs.copy(path.join(srcDir, 'launchBridge.js'), path.join(destDir, 'launchBridge.js'))
   await fs.copy(path.join(srcDir, 'nativeExtract.js'), path.join(destDir, 'nativeExtract.js'))
+  await fs.copy(path.join(srcDir, 'launchEnv.js'), path.join(destDir, 'launchEnv.js'))
   console.log('Copied launch helpers to out/launch/')
 }
 
