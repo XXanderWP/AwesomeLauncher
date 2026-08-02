@@ -1,47 +1,10 @@
 /**
- * Environment for the Minecraft JVM process + host launcher sanitizers.
+ * Environment for the Minecraft JVM + host launcher sanitizers.
  *
- * Cursor / foreign AppImages inject LD_LIBRARY_PATH with /tmp/.mount_* libs.
- * NVIDIA GLX + GLFW then SIGSEGV in glfwWaitEventsTimeout. Minecraft gets a
- * whitelisted env; the Electron host also strips foreign mounts from process.env
- * so nothing re-inherits them.
+ * Helios inherits the parent env. We do the same for Wayland/DISPLAY, but the
+ * Minecraft JVM must NEVER see AppImage/Electron LD_LIBRARY_PATH — including
+ * this launcher's own /tmp/.mount_* (that breaks NVIDIA GLX / GLFW).
  */
-
-const LINUX_PASSTHROUGH = [
-  'HOME',
-  'USER',
-  'LOGNAME',
-  'SHELL',
-  'TMPDIR',
-  'TEMP',
-  'TMP',
-  'LANG',
-  'LANGUAGE',
-  'LC_ALL',
-  'LC_CTYPE',
-  'LC_MESSAGES',
-  'LC_NUMERIC',
-  'LC_TIME',
-  'LC_COLLATE',
-  'LC_MONETARY',
-  'TZ',
-  'DISPLAY',
-  'XAUTHORITY',
-  'XDG_RUNTIME_DIR',
-  'XDG_DATA_HOME',
-  'XDG_CONFIG_HOME',
-  'XDG_CACHE_HOME',
-  'XDG_STATE_HOME',
-  'DBUS_SESSION_BUS_ADDRESS',
-  'SSH_AUTH_SOCK',
-  'XCURSOR_SIZE',
-  'XCURSOR_THEME',
-  'GTK_THEME',
-  'QT_QPA_PLATFORMTHEME',
-  'JAVA_HOME',
-  'HOSTNAME',
-  'PWD'
-]
 
 function isMountPath(entry) {
   return Boolean(entry && (entry.includes('/.mount_') || entry.includes('/tmp/.mount_')))
@@ -50,7 +13,7 @@ function isMountPath(entry) {
 function isForeignBundledLibPath(entry, appDir) {
   if (!entry) return false
   if (appDir && (entry === appDir || entry.startsWith(appDir + '/'))) {
-    return false // keep our own AppImage libs for Electron helpers
+    return false
   }
   return (
     isMountPath(entry) ||
@@ -61,7 +24,6 @@ function isForeignBundledLibPath(entry, appDir) {
   )
 }
 
-/** @deprecated use isForeignBundledLibPath — kept for tests that filter any mount */
 function isBundledLibPath(entry) {
   return isForeignBundledLibPath(entry, null)
 }
@@ -88,8 +50,8 @@ function sanitizeLdLibraryPath(value, appDir) {
 }
 
 /**
- * Mutate the Electron host process.env: drop Cursor/foreign AppImage library
- * paths. Keeps this app's own APPDIR mount so packaged builds keep working.
+ * Mutate Electron host process.env: drop Cursor/foreign AppImage library paths.
+ * Keeps this app's own APPDIR mount so packaged Electron helpers keep working.
  */
 function sanitizeLauncherProcessEnv(env = process.env, platform = process.platform) {
   if (platform !== 'linux') {
@@ -118,44 +80,28 @@ function sanitizeLauncherProcessEnv(env = process.env, platform = process.platfo
   }
 }
 
-function buildLinuxMinecraftEnv(baseEnv) {
-  const env = {}
+/**
+ * Env for the Minecraft child: inherit session (Wayland/DISPLAY/…), but never
+ * pass AppImage library search paths into the JVM.
+ */
+function buildMinecraftProcessEnv(baseEnv = process.env, platform = process.platform) {
+  const env = { ...baseEnv }
 
-  for (const key of LINUX_PASSTHROUGH) {
-    if (baseEnv[key] != null && baseEnv[key] !== '') {
-      env[key] = baseEnv[key]
-    }
+  if (platform === 'linux') {
+    env.__GL_THREADED_OPTIMIZATIONS = '0'
+
+    // Critical: strip ALL AppImage mounts for the game, including our APPDIR.
+    // Electron needs those libs; Minecraft/NVIDIA must use the system GL stack.
+    delete env.LD_LIBRARY_PATH
+    delete env.LD_PRELOAD
+    env.PATH = sanitizePath(env.PATH, null)
+
+    delete env.ELECTRON_RUN_AS_NODE
+    delete env.ELECTRON_NO_ASAR
+    delete env.ELECTRON_NO_ATTACH_CONSOLE
   }
-
-  for (const [key, value] of Object.entries(baseEnv)) {
-    if (key.startsWith('LC_') && value != null && value !== '' && env[key] == null) {
-      env[key] = value
-    }
-  }
-
-  // Never pass host/AppImage library search paths into Minecraft.
-  env.PATH = sanitizePath(baseEnv.PATH, null)
-  // Explicitly omit LD_LIBRARY_PATH / LD_PRELOAD / APPDIR / ELECTRON_*.
-
-  env.__GL_THREADED_OPTIMIZATIONS = '0'
-  env.mesa_glthread = 'false'
-
-  if (baseEnv.DISPLAY) {
-    env.DISPLAY = baseEnv.DISPLAY
-  }
-  env.XDG_SESSION_TYPE = 'x11'
-  env.GDK_BACKEND = 'x11'
-  env.GLFW_PLATFORM = 'x11'
-  env.QT_QPA_PLATFORM = 'xcb'
 
   return env
-}
-
-function buildMinecraftProcessEnv(baseEnv = process.env, platform = process.platform) {
-  if (platform === 'linux') {
-    return buildLinuxMinecraftEnv(baseEnv)
-  }
-  return { ...baseEnv }
 }
 
 module.exports = {
@@ -163,6 +109,5 @@ module.exports = {
   sanitizeLauncherProcessEnv,
   sanitizeLdLibraryPath,
   sanitizePath,
-  isBundledLibPath,
-  LINUX_PASSTHROUGH
+  isBundledLibPath
 }

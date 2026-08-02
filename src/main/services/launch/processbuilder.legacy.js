@@ -130,23 +130,27 @@ class ProcessBuilder {
     if (process.platform === 'linux') {
       const glSummary = [
         `__GL_THREADED_OPTIMIZATIONS=${launchEnv.__GL_THREADED_OPTIMIZATIONS}`,
-        `GLFW_PLATFORM=${launchEnv.GLFW_PLATFORM || '-'}`,
-        `GDK_BACKEND=${launchEnv.GDK_BACKEND || '-'}`,
         `XDG_SESSION_TYPE=${launchEnv.XDG_SESSION_TYPE || '-'}`,
         `WAYLAND_DISPLAY=${launchEnv.WAYLAND_DISPLAY || '(unset)'}`,
         `LD_LIBRARY_PATH=${launchEnv.LD_LIBRARY_PATH || '(cleared)'}`,
         `DISPLAY=${launchEnv.DISPLAY || '-'}`
       ].join(' ')
       logger.info('Linux GL env:', glSummary)
-      // Visible in the same terminal stream as [Minecraft] lines.
       console.log(`\x1b[36m[ProcessBuilder]\x1b[0m Linux GL env: ${glSummary}`)
       try {
+        const keys = [
+          'DISPLAY',
+          'WAYLAND_DISPLAY',
+          'XDG_SESSION_TYPE',
+          'XDG_RUNTIME_DIR',
+          'XAUTHORITY',
+          'LD_LIBRARY_PATH',
+          '__GL_THREADED_OPTIMIZATIONS',
+          'PATH'
+        ]
         fs.writeFileSync(
           path.join(this.gameDir, '.launcher-env.log'),
-          Object.keys(launchEnv)
-            .sort()
-            .map((k) => `${k}=${launchEnv[k]}`)
-            .join('\n') + '\n'
+          keys.map((k) => `${k}=${launchEnv[k] ?? ''}`).join('\n') + '\n'
         )
       } catch (err) {
         logger.warn('Could not write .launcher-env.log', err)

@@ -161,10 +161,10 @@ describe('nativeExtract', () => {
 })
 
 describe('launchEnv', () => {
-  it('builds a clean Linux env with NVIDIA/X11 workarounds', () => {
+  it('inherits Wayland but never passes AppImage LD_LIBRARY_PATH to Minecraft', () => {
     const env = buildMinecraftProcessEnv(
       {
-        PATH: '/tmp/.mount_Cursor/usr/bin:/usr/bin',
+        PATH: '/tmp/.mount_App/usr/bin:/usr/bin',
         HOME: '/home/demo',
         DISPLAY: ':0',
         WAYLAND_DISPLAY: 'wayland-0',
@@ -177,13 +177,11 @@ describe('launchEnv', () => {
       'linux'
     )
     expect(env.__GL_THREADED_OPTIMIZATIONS).toBe('0')
-    expect(env.GLFW_PLATFORM).toBe('x11')
-    expect(env.GDK_BACKEND).toBe('x11')
-    expect(env.XDG_SESSION_TYPE).toBe('x11')
+    expect(env.WAYLAND_DISPLAY).toBe('wayland-0')
+    expect(env.XDG_SESSION_TYPE).toBe('wayland')
     expect(env.DISPLAY).toBe(':0')
     expect(env.HOME).toBe('/home/demo')
-    expect(env.WAYLAND_DISPLAY).toBeUndefined()
-    expect(env.APPDIR).toBeUndefined()
+    expect(env.APPDIR).toBe('/tmp/.mount_App')
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined()
     expect(env.LD_LIBRARY_PATH).toBeUndefined()
     expect(env.PATH).not.toContain('.mount_')

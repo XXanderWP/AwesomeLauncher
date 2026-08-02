@@ -48,24 +48,25 @@ makes Node `path.join` discard the natives directory on Linux and write to the f
 
 ## Linux NVIDIA / GLFW
 
-On Linux:
+On Linux, Minecraft spawn matches Helios / [AwesomeCraftLauncher](https://github.com/XXanderWP/AwesomeCraftLauncher)
+for the session, with one critical extra rule for AppImage builds:
 
-1. **Host sanitizer** (`sanitizeLauncherProcessEnv`) runs at Electron main startup and
-   rewrites `process.env.LD_LIBRARY_PATH` / `PATH`: drops Cursor and other foreign
-   `/tmp/.mount_*` entries, but keeps this app’s own `APPDIR` mount for packaged builds.
-2. **Minecraft spawn** uses a **whitelisted** env (not a full `process.env` copy): no
-   `LD_LIBRARY_PATH`, no `APPDIR`/`ELECTRON_*`, forces X11 + `__GL_THREADED_OPTIMIZATIONS=0`.
+1. **Inherit session env** (`WAYLAND_DISPLAY`, `XDG_SESSION_TYPE`, `DISPLAY`, …).
+2. Set `__GL_THREADED_OPTIMIZATIONS=0`.
+3. **Delete `LD_LIBRARY_PATH` / `LD_PRELOAD` for the JVM entirely** (including this
+   launcher’s own `/tmp/.mount_*`). Electron keeps its `APPDIR` libs; Minecraft must
+   use the system NVIDIA/GLX stack. Passing the AppImage mount into Java causes
+   `SIGSEGV` in `glfwWaitEventsTimeout`.
+4. Strip all `/tmp/.mount_*` from the child’s `PATH`; drop a few `ELECTRON_*` markers.
 
-Without this, NVIDIA (esp. under Wayland/XWayland) often SIGSEGVs in
-`glfwWaitEventsTimeout` / `org.lwjgl.system.JNI` when the launcher was started from a
-Cursor AppImage terminal.
+Host sanitizer only removes *foreign* mounts from the Electron process itself.
 
-Each launch writes `instances/<id>/.launcher-env.log` and prints
-`[ProcessBuilder] Linux GL env: ...` (and `[Launcher] Sanitized host LD_LIBRARY_PATH=...`
-when the host env changed).
+Default JVM options match Helios Java 17 (short G1 set), not Aikar server flags.
+Existing `config.json` `jvmOptions` are kept until the user resets them — GC flags
+do not cause the GLFW SIGSEGV.
 
-Launch helpers are copied to `out/launch/` on `dev`/`build`/`preview`. Restart the launcher
-after changing them — Electron caches `require()`.
+Each launch writes a short `instances/<id>/.launcher-env.log` and prints
+`[ProcessBuilder] Linux GL env: ...`.
 
 ## Game session UX
 
