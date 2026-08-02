@@ -15,6 +15,7 @@ import {
   restorePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
 import { validateRamLimits, clampRamMb } from '../../src/shared/ramValidation'
+import { elybySkinUrl, elybyProfileUrl, shortUuid } from '../../src/shared/elybyProfile'
 
 describe('preservePaths', () => {
   it('normalizes separators', () => {
@@ -146,6 +147,19 @@ describe('ramValidation', () => {
   it('clamps ram values', () => {
     expect(clampRamMb(100, 512, 8192)).toBe(512)
     expect(clampRamMb(99999, 512, 8192)).toBe(8192)
+  })
+})
+
+describe('elybyProfile helpers', () => {
+  it('builds skin and profile urls', () => {
+    expect(elybySkinUrl('Steve', 1)).toContain('/skins/Steve.png')
+    expect(elybyProfileUrl({ username: 'steve', displayName: 'Steve' })).toBe(
+      'https://ely.by/Steve'
+    )
+  })
+
+  it('shortens uuids', () => {
+    expect(shortUuid('01234567-89ab-cdef-0123-456789abcdef')).toBe('01234567…cdef')
   })
 })
 

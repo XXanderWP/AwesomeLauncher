@@ -207,7 +207,7 @@ export function App(): React.JSX.Element {
         {view === 'home' && (
           <HomePage
             config={config}
-            accountName={account.displayName}
+            account={account}
             servers={servers}
             statuses={statuses}
             progress={progress}

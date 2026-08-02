@@ -70,6 +70,13 @@ function registerIpc(): void {
     totalMb: bytesToMb(os.totalmem()),
     freeMb: bytesToMb(os.freemem())
   }))
+  ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+      throw new Error('Only http(s) URLs can be opened')
+    }
+    await shell.openExternal(url)
+    return true
+  })
 
   ipcMain.handle(IPC.CONFIG_GET, () => configService.get())
   ipcMain.handle(IPC.CONFIG_UPDATE, async (_e, partial: Partial<AppConfig>) => {

@@ -31,6 +31,7 @@ const api = {
   getSystemLocale: (): Promise<string> => ipcRenderer.invoke(IPC.SYSTEM_LOCALE),
   getSystemMemory: (): Promise<{ totalMb: number; freeMb: number }> =>
     ipcRenderer.invoke(IPC.SYSTEM_MEMORY),
+  openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
 
   getConfig: (): Promise<AppConfig> => ipcRenderer.invoke(IPC.CONFIG_GET),
   updateConfig: (partial: DeepPartial<AppConfig>): Promise<AppConfig> =>

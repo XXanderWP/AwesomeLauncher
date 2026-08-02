@@ -168,6 +168,77 @@ a {
   padding: 22px;
 }
 
+.home-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.account-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 16px;
+  align-items: center;
+  background: rgba(18, 23, 34, 0.82);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+  animation: rise-in 420ms ease both;
+}
+
+.account-card-meta {
+  min-width: 0;
+}
+
+.account-card-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.account-card-sub,
+.account-card-uuid {
+  margin-top: 4px;
+  font-size: 0.88rem;
+}
+
+.account-card-uuid {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.ely-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius);
+  image-rendering: pixelated;
+  background: var(--bg-3);
+  object-fit: cover;
+  box-shadow: var(--shadow);
+}
+
+.ely-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--accent);
+  border: 1px solid rgba(61, 214, 198, 0.25);
+}
+
+@media (max-width: 860px) {
+  .account-card {
+    grid-template-columns: 56px 1fr;
+  }
+
+  .ely-avatar,
+  .ely-avatar-fallback {
+    width: 56px;
+    height: 56px;
+  }
+}
+
 .panel {
   background: rgba(18, 23, 34, 0.82);
   border: 1px solid var(--border);

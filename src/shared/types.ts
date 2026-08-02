@@ -158,6 +158,7 @@ export const IPC = {
   APP_PLATFORM: 'app:platform',
   SYSTEM_LOCALE: 'system:locale',
   SYSTEM_MEMORY: 'system:memory',
+  SHELL_OPEN_EXTERNAL: 'shell:open-external',
   EVENT_PROGRESS: 'event:progress',
   EVENT_GAME_LOG: 'event:game-log',
   EVENT_GAME_STATE: 'event:game-state',
