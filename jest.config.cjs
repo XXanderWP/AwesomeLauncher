@@ -16,6 +16,7 @@ module.exports = {
     'src/main/utils/**/*.ts',
     'src/main/services/auth/**/*.ts',
     'src/main/services/download/preserveBackup.ts',
+    'src/main/services/mods/modMetadata.ts',
     'src/main/services/config/ConfigService.ts',
     'src/main/services/server-status/**/*.ts',
     '!src/**/*.d.ts'

@@ -43,7 +43,7 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [langTick, setLangTick] = useState(0)
   const [totalMemoryMb, setTotalMemoryMb] = useState(8192)
-  const [platform, setPlatform] = useState('')
+  const [platform, setPlatform] = useState<string>('')
 
   const account = useMemo(() => {
     if (!config?.selectedAccountUuid) return null

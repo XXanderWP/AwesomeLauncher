@@ -230,6 +230,99 @@ describe('releaseArtifacts', () => {
   })
 })
 
+describe('modMetadata', () => {
+  const fs = require('fs-extra')
+  const os = require('os')
+  const path = require('path')
+  const AdmZip = require('adm-zip')
+  const {
+    disabledModPath,
+    enabledModPath,
+    isDisabledModFile,
+    isModArchiveFile,
+    listModFilesInDirectory,
+    parseModsToml,
+    readModMetadataFromJar
+  } = require('../../src/main/services/mods/modMetadata')
+
+  it('detects jar and disabled suffixes', () => {
+    expect(isModArchiveFile('foo.jar')).toBe(true)
+    expect(isModArchiveFile('foo.jar.disabled')).toBe(true)
+    expect(isModArchiveFile('foo.txt')).toBe(false)
+    expect(isDisabledModFile('foo.jar.disabled')).toBe(true)
+    expect(isDisabledModFile('foo.jar')).toBe(false)
+    expect(enabledModPath('/a/foo.jar.disabled')).toBe('/a/foo.jar')
+    expect(disabledModPath('/a/foo.jar')).toBe('/a/foo.jar.disabled')
+  })
+
+  it('parses mods.toml fields', () => {
+    const parsed = parseModsToml(`
+modLoader="javafml"
+[[mods]]
+modId="example"
+version="1.2.3"
+displayName="Example Mod"
+description="A short desc"
+authors="Alice, Bob"
+logoFile="logo.png"
+`)
+    expect(parsed).toEqual({
+      id: 'example',
+      name: 'Example Mod',
+      version: '1.2.3',
+      description: 'A short desc',
+      authors: ['Alice', 'Bob'],
+      logoFile: 'logo.png'
+    })
+  })
+
+  it('reads fabric.mod.json from a jar', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mod-'))
+    const jarPath = path.join(dir, 'demo.jar')
+    const zip = new AdmZip()
+    zip.addFile(
+      'fabric.mod.json',
+      Buffer.from(
+        JSON.stringify({
+          id: 'demo',
+          name: 'Demo Mod',
+          version: '9.9.9',
+          description: 'Hello',
+          authors: ['Xander'],
+          icon: 'icon.png'
+        }),
+        'utf8'
+      )
+    )
+    // 1x1 PNG
+    zip.addFile(
+      'icon.png',
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64'
+      )
+    )
+    zip.writeZip(jarPath)
+
+    const meta = readModMetadataFromJar(jarPath)
+    expect(meta.id).toBe('demo')
+    expect(meta.name).toBe('Demo Mod')
+    expect(meta.version).toBe('9.9.9')
+    expect(meta.description).toBe('Hello')
+    expect(meta.authors).toEqual(['Xander'])
+    expect(meta.iconDataUrl).toMatch(/^data:image\/png;base64,/)
+
+    await fs.outputFile(path.join(dir, 'other.jar.disabled'), 'x')
+    const listed = await listModFilesInDirectory(dir)
+    expect(listed.map((p: string) => path.basename(p)).sort()).toEqual([
+      'demo.jar',
+      'other.jar.disabled'
+    ])
+
+    await fs.remove(dir)
+  })
+})
+
 describe('preserveBackup', () => {
   const fs = require('fs-extra')
   const os = require('os')

@@ -41,9 +41,12 @@ Keep app + Applications icons high in the DMG window; place the quarantine note 
 
 ## Auto-update
 
-`electron-updater` provider: GitHub (`XXanderWP/AwesomeLauncher`).
+- Windows / Linux: `electron-updater` against GitHub Releases
+- macOS: custom manual flow — check GitHub Releases API, then Install runs `osascript` with administrator privileges to download the arch DMG, replace the `.app`, clear `com.apple.quarantine`, and relaunch
 
-Settings modes:
+Settings modes (Windows / Linux):
 
 - auto download + install on quit
 - auto download + manual install button
+
+macOS UI hides auto modes and shows Check + Install (admin).
