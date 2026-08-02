@@ -11,6 +11,7 @@ async function main() {
     path.join(destDir, 'processbuilder.legacy.js')
   )
   await fs.copy(path.join(srcDir, 'launchBridge.js'), path.join(destDir, 'launchBridge.js'))
+  await fs.copy(path.join(srcDir, 'nativeExtract.js'), path.join(destDir, 'nativeExtract.js'))
   console.log('Copied launch helpers to out/launch/')
 }
 
