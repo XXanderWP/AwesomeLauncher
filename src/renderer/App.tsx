@@ -394,138 +394,138 @@ export function App(): React.JSX.Element {
         onDragLeave={handleDragLeave}
         onDrop={(event) => void handleDrop(event)}
       >
-      <header className="topbar">
-        <div className="brand">
-          <img src={logo} alt="AwesomeCraft" />
-          <div className="brand-text">
-            <strong>{t('app.name')}</strong>
-            <span>{t('common.version', version)}</span>
+        <header className="topbar">
+          <div className="brand">
+            <img src={logo} alt="AwesomeCraft" />
+            <div className="brand-text">
+              <strong>{t('app.name')}</strong>
+              <span>{t('common.version', version)}</span>
+            </div>
           </div>
-        </div>
-        <nav className="nav">
-          <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
-            {t('nav.home')}
-          </button>
-          <button
-            className={view === 'settings' ? 'active' : ''}
-            onClick={() => setView('settings')}
-          >
-            {t('nav.settings')}
-          </button>
-          <button className={view === 'logs' ? 'active' : ''} onClick={() => setView('logs')}>
-            {t('nav.logs')}
-          </button>
-        </nav>
-      </header>
-      <main className="content">
-        {error && <div className="error-box">{error}</div>}
-        {view === 'home' && (
-          <HomePage
-            config={config}
-            account={account}
-            servers={servers}
-            statuses={statuses}
-            progress={progress}
-            gameState={gameState}
-            totalMemoryMb={totalMemoryMb}
-            modsServerId={modsServerId}
-            modsReloadToken={modsReloadToken}
-            onModsServerIdChange={setModsServerId}
-            onSelectServer={async (serverId) => {
-              const next = await window.awesomeAPI.updateConfig({ selectedServerId: serverId })
-              setConfig(next)
-            }}
-            onLaunch={async (serverId) => {
-              setError(null)
-              try {
-                await window.awesomeAPI.launch(serverId)
-              } catch (err) {
-                setError(err instanceof Error ? err.message : String(err))
-              }
-            }}
-            onVerify={async (serverId) => {
-              setError(null)
-              try {
-                await window.awesomeAPI.verifyInstall(serverId)
-              } catch (err) {
-                setError(err instanceof Error ? err.message : String(err))
-              }
-            }}
-            onKill={async () => {
-              await window.awesomeAPI.killGame()
-            }}
-            onLogout={async () => {
-              const next = await window.awesomeAPI.logout()
-              setConfig(next)
-            }}
-            onOpenLogs={() => setView('logs')}
-            onConfigChange={async (next) => setConfig(next)}
-          />
-        )}
-        {view === 'settings' && (
-          <SettingsPage
-            config={config}
-            updateStatus={updateStatus}
-            totalMemoryMb={totalMemoryMb}
-            platform={platform}
-            onChange={async (partial) => {
-              const next = await window.awesomeAPI.updateConfig(partial)
-              setConfig(next)
-              await applyLanguageFromConfig(next)
-            }}
-            onBrowseDataDir={async () => {
-              const next = await window.awesomeAPI.selectDataDirectory()
-              setConfig(next)
-            }}
-            onPreviewLanguage={previewLanguage}
-          />
-        )}
-        {view === 'logs' && (
-          <LogsPage
-            logs={logs}
-            running={gameState.running}
-            onClear={async () => {
-              await window.awesomeAPI.clearGameLogs()
-              setLogs([])
-            }}
-            onBack={() => setView('home')}
-            onKill={async () => {
-              await window.awesomeAPI.killGame()
-            }}
-          />
-        )}
-      </main>
+          <nav className="nav">
+            <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
+              {t('nav.home')}
+            </button>
+            <button
+              className={view === 'settings' ? 'active' : ''}
+              onClick={() => setView('settings')}
+            >
+              {t('nav.settings')}
+            </button>
+            <button className={view === 'logs' ? 'active' : ''} onClick={() => setView('logs')}>
+              {t('nav.logs')}
+            </button>
+          </nav>
+        </header>
+        <main className="content">
+          {error && <div className="error-box">{error}</div>}
+          {view === 'home' && (
+            <HomePage
+              config={config}
+              account={account}
+              servers={servers}
+              statuses={statuses}
+              progress={progress}
+              gameState={gameState}
+              totalMemoryMb={totalMemoryMb}
+              modsServerId={modsServerId}
+              modsReloadToken={modsReloadToken}
+              onModsServerIdChange={setModsServerId}
+              onSelectServer={async (serverId) => {
+                const next = await window.awesomeAPI.updateConfig({ selectedServerId: serverId })
+                setConfig(next)
+              }}
+              onLaunch={async (serverId) => {
+                setError(null)
+                try {
+                  await window.awesomeAPI.launch(serverId)
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : String(err))
+                }
+              }}
+              onVerify={async (serverId) => {
+                setError(null)
+                try {
+                  await window.awesomeAPI.verifyInstall(serverId)
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : String(err))
+                }
+              }}
+              onKill={async () => {
+                await window.awesomeAPI.killGame()
+              }}
+              onLogout={async () => {
+                const next = await window.awesomeAPI.logout()
+                setConfig(next)
+              }}
+              onOpenLogs={() => setView('logs')}
+              onConfigChange={async (next) => setConfig(next)}
+            />
+          )}
+          {view === 'settings' && (
+            <SettingsPage
+              config={config}
+              updateStatus={updateStatus}
+              totalMemoryMb={totalMemoryMb}
+              platform={platform}
+              onChange={async (partial) => {
+                const next = await window.awesomeAPI.updateConfig(partial)
+                setConfig(next)
+                await applyLanguageFromConfig(next)
+              }}
+              onBrowseDataDir={async () => {
+                const next = await window.awesomeAPI.selectDataDirectory()
+                setConfig(next)
+              }}
+              onPreviewLanguage={previewLanguage}
+            />
+          )}
+          {view === 'logs' && (
+            <LogsPage
+              logs={logs}
+              running={gameState.running}
+              onClear={async () => {
+                await window.awesomeAPI.clearGameLogs()
+                setLogs([])
+              }}
+              onBack={() => setView('home')}
+              onKill={async () => {
+                await window.awesomeAPI.killGame()
+              }}
+            />
+          )}
+        </main>
 
-      {dropActive ? (
-        <div className="mod-drop-overlay" aria-hidden>
-          <div className="mod-drop-overlay-card">
-            {modsServerId ? t('instance.mods.drop.overlay') : t('instance.mods.drop.openMods')}
+        {dropActive ? (
+          <div className="mod-drop-overlay" aria-hidden>
+            <div className="mod-drop-overlay-card">
+              {modsServerId ? t('instance.mods.drop.overlay') : t('instance.mods.drop.openMods')}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {dropNotice ? (
-        <ModDropNoticeModal kind={dropNotice} onClose={() => setDropNotice(null)} />
-      ) : null}
+        {dropNotice ? (
+          <ModDropNoticeModal kind={dropNotice} onClose={() => setDropNotice(null)} />
+        ) : null}
 
-      {pendingInstall && modsServerId ? (
-        <ModInstallConfirmModal
-          serverName={modsServerName}
-          mods={pendingInstall}
-          busy={installBusy}
-          error={installError}
-          onCancel={() => {
-            if (installBusy) return
-            setPendingInstall(null)
-            setInstallError(null)
-          }}
-          onConfirm={() => void confirmInstall()}
-        />
-      ) : null}
+        {pendingInstall && modsServerId ? (
+          <ModInstallConfirmModal
+            serverName={modsServerName}
+            mods={pendingInstall}
+            busy={installBusy}
+            error={installError}
+            onCancel={() => {
+              if (installBusy) return
+              setPendingInstall(null)
+              setInstallError(null)
+            }}
+            onConfirm={() => void confirmInstall()}
+          />
+        ) : null}
 
-      {/* Keep register URL referenced for tooling */}
-      <span hidden>{ELYBY_REGISTER_URL}</span>
-    </div>
+        {/* Keep register URL referenced for tooling */}
+        <span hidden>{ELYBY_REGISTER_URL}</span>
+      </div>
       {splashOverlay}
     </div>
   )

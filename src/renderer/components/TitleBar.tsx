@@ -18,7 +18,10 @@ export function TitleBar(): React.JSX.Element {
 
   return (
     <header className="titlebar" aria-label={t('titlebar.label')}>
-      <div className="titlebar-drag" onDoubleClick={() => void window.awesomeAPI.windowToggleMaximize()}>
+      <div
+        className="titlebar-drag"
+        onDoubleClick={() => void window.awesomeAPI.windowToggleMaximize()}
+      >
         <span className="titlebar-title">{t('app.name')}</span>
       </div>
       <div className="titlebar-controls">

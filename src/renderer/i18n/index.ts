@@ -92,8 +92,7 @@ const translations = {
     'settings.preserveConfigs.hint':
       'Keep existing options.txt, optionshaders, config files, and user mods; still update pack files elsewhere',
     'settings.skipLoadingGifs': 'Skip loading GIFs',
-    'settings.skipLoadingGifs.hint':
-      'Hide the random splash GIF and skip the extra loading delay.',
+    'settings.skipLoadingGifs.hint': 'Hide the random splash GIF and skip the extra loading delay.',
     'settings.disableUiBlur': 'Disable UI blur',
     'settings.disableUiBlur.hint': 'Turn off frosted-glass blur on panels in the main section.',
     'settings.resolution': 'Resolution',
