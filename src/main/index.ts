@@ -13,7 +13,11 @@ import {
   refresh,
   invalidate
 } from './services/auth/elybyAuth'
-import { pollDeviceCodeLogin, startDeviceCodeLogin } from './services/auth/elybyDeviceCode'
+import {
+  pollDeviceCodeLogin,
+  startDeviceCodeLogin,
+  enrichAccountWithElyId
+} from './services/auth/elybyDeviceCode'
 import { fetchServerStatus } from './services/server-status/serverStatus'
 import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
@@ -228,6 +232,15 @@ function registerIpc(): void {
 app.whenReady().then(async () => {
   configService = new ConfigService()
   await configService.load()
+
+  const selected = configService.getSelectedAccount()
+  if (selected) {
+    const enriched = await enrichAccountWithElyId(selected)
+    if (enriched.elyId !== selected.elyId) {
+      await configService.setAccount(enriched, true)
+    }
+  }
+
   distroService = new DistroService(configService)
   installService = new InstallService(configService, distroService)
   gameService = new GameService(configService, distroService, installService)

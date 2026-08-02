@@ -134,6 +134,7 @@ jobs:
           | \`AwesomeCraftLauncher-setup-${VERSION}-x64.dmg\` | macOS (Intel) |
 
           macOS users: open \`QUARANTINE-README.txt\` inside the DMG for Gatekeeper removal instructions.
+          Auto-update also publishes \`.zip\` builds for Apple Silicon / Intel; install manually from the DMG.
 
           ## Русский
 
@@ -147,6 +148,7 @@ jobs:
           | \`AwesomeCraftLauncher-setup-${VERSION}-x64.dmg\` | macOS (Intel) |
 
           Для macOS откройте \`QUARANTINE-README.txt\` в DMG — там команда снятия карантина.
+          Для автообновления в релизе также публикуются \`.zip\` (их скачивать вручную не нужно).
 
           ## Українська
 
@@ -160,6 +162,7 @@ jobs:
           | \`AwesomeCraftLauncher-setup-${VERSION}-x64.dmg\` | macOS (Intel) |
 
           Для macOS відкрийте \`QUARANTINE-README.txt\` у DMG — там команда зняття карантину.
+          Для автооновлення в релізі також публікуються \`.zip\` (їх не потрібно завантажувати вручну).
           EOF
 
       - name: Create GitHub release

@@ -38,9 +38,13 @@ Base URL: `https://authserver.ely.by`
   accessToken: string,
   username: string,
   uuid: string, // dashed
-  displayName: string
+  displayName: string,
+  elyId?: number // site id for https://ely.by/u{id}
 }
 ```
+
+Profile button opens `https://ely.by/u{elyId}` when known; otherwise `https://account.ely.by/`.
+On startup, OAuth sessions without `elyId` are enriched via account-info API.
 
 ## Launch integration
 

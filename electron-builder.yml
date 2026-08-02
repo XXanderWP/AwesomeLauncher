@@ -43,7 +43,12 @@ nsis:
 
 mac:
   target:
+    # DMG for manual install; ZIP required by electron-updater (Squirrel.Mac).
     - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
       arch:
         - x64
         - arm64
