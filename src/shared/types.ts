@@ -11,6 +11,11 @@ export interface ElybyAccount {
   displayName: string
   /** Numeric Ely.by site account id used in https://ely.by/u{id}. */
   elyId?: number
+  /**
+   * OAuth refresh token from device-code login (`offline_access` scope).
+   * Used to renew `accessToken` before launch; not present for password/Yggdrasil logins.
+   */
+  refreshToken?: string
 }
 
 export interface GameSettings {

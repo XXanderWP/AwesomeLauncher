@@ -17,7 +17,8 @@ import {
 import {
   pollDeviceCodeLogin,
   startDeviceCodeLogin,
-  enrichAccountWithElyId
+  enrichAccountWithElyId,
+  ensurePlayableSession
 } from './services/auth/elybyDeviceCode'
 import { fetchServerStatus } from './services/server-status/serverStatus'
 import {
@@ -175,12 +176,17 @@ function registerIpc(): void {
   ipcMain.handle(IPC.AUTH_REFRESH, async () => {
     const account = configService.getSelectedAccount()
     if (!account) return configService.get()
-    const result = await refresh(account.accessToken, configService.get().clientToken)
-    if (result.statusCode === 200 && result.body && 'accessToken' in result.body) {
-      const next = accountFromAuthResponse(result.body as any)
+    try {
+      const next = await ensurePlayableSession(account, configService.get().clientToken)
       return configService.setAccount(next, true)
+    } catch {
+      const result = await refresh(account.accessToken, configService.get().clientToken)
+      if (result.statusCode === 200 && result.body && 'accessToken' in result.body) {
+        const next = accountFromAuthResponse(result.body as any)
+        return configService.setAccount(next, true)
+      }
+      return configService.get()
     }
-    return configService.get()
   })
 
   ipcMain.handle(IPC.DISTRO_GET, async () => distroService.get())

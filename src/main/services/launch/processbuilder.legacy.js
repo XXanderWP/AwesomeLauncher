@@ -476,8 +476,11 @@ class ProcessBuilder {
   _constructJVMArguments112(mods, tempNativePath) {
     let args = []
 
-    const agent = this.authUser.type === 'elyby' ? elybyJavaAgentArg() : null
-    if (agent != null) {
+    if (this.authUser.type === 'elyby') {
+      const agent = elybyJavaAgentArg()
+      if (agent == null) {
+        throw new Error('authlib-injector.jar is missing; cannot launch with Ely.by')
+      }
       args.push(agent)
     }
 
@@ -520,8 +523,11 @@ class ProcessBuilder {
     // JVM Arguments First
     let args = this.vanillaManifest.arguments.jvm
 
-    const agent113 = this.authUser.type === 'elyby' ? elybyJavaAgentArg() : null
-    if (agent113 != null) {
+    if (this.authUser.type === 'elyby') {
+      const agent113 = elybyJavaAgentArg()
+      if (agent113 == null) {
+        throw new Error('authlib-injector.jar is missing; cannot launch with Ely.by')
+      }
       args = [agent113].concat(args)
     }
 

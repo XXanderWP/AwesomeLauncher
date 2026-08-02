@@ -16,6 +16,7 @@ Default public `client_id`: `ely` (constant `ELYBY_OAUTH_CLIENT_ID`).
 Scopes: `account_info offline_access minecraft_server_session`.
 
 The OAuth access token is used directly as the Minecraft session token (same pattern as ElyPrismLauncher).
+The OAuth `refresh_token` is persisted on the account and used to renew the access token before each launch.
 
 UI: device code is the primary login tab; username/password remains available as fallback.
 
@@ -39,7 +40,8 @@ Base URL: `https://authserver.ely.by`
   username: string,
   uuid: string, // dashed
   displayName: string,
-  elyId?: number // site id for https://ely.by/u{id}
+  elyId?: number, // site id for https://ely.by/u{id}
+  refreshToken?: string // OAuth device-code sessions only
 }
 ```
 
@@ -48,7 +50,10 @@ On startup, OAuth sessions without `elyId` are enriched via account-info API.
 
 ## Launch integration
 
-Minecraft is started with JVM agent:
+Before spawn, `ensurePlayableSession` validates the token (account-info) and refreshes via OAuth
+`refresh_token` or Yggdrasil `/auth/refresh` when needed.
+
+Minecraft is started with JVM agent (hard-required for Ely.by):
 
 ```
 -javaagent:<resources>/libraries/authlib-injector/authlib-injector.jar=ely.by

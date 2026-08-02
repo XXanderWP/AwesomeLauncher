@@ -7,6 +7,7 @@ import { IPC } from '../../../shared/types'
 import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
 import type { InstallService } from '../download/InstallService'
+import { ensurePlayableSession } from '../auth/elybyDeviceCode'
 import { createRequire } from 'module'
 import { resolveAuthlibInjectorPath, setLaunchBridge } from '../launch/launchBridge.js'
 
@@ -47,8 +48,8 @@ export class GameService {
       throw new Error('Game is already running')
     }
 
-    const account = this.config.getSelectedAccount()
-    if (!account) {
+    const selected = this.config.getSelectedAccount()
+    if (!selected) {
       throw new Error('No Ely.by account selected')
     }
 
@@ -56,6 +57,10 @@ export class GameService {
     if (!(await fs.pathExists(authlibPath))) {
       throw new Error('authlib-injector.jar is missing from launcher resources')
     }
+
+    this.emitProgressLaunch('Refreshing Ely.by session')
+    const account = await ensurePlayableSession(selected, this.config.get().clientToken)
+    await this.config.setAccount(account, true)
 
     this.emitProgressLaunch('Preparing game files')
     const prepared = await this.install.prepareLaunch(serverId)

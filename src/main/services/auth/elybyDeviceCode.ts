@@ -6,8 +6,14 @@ import {
   ELYBY_OAUTH_TOKEN_URL
 } from '../../../shared/types'
 import type { ElybyAccount } from '../../../shared/types'
-import { normalizeProfileUuid } from './elybyAuth'
+import {
+  accountFromAuthResponse,
+  normalizeProfileUuid,
+  refresh as refreshYggdrasil
+} from './elybyAuth'
 import { parseElyAccountId } from '../../../shared/elybyProfile'
+
+const OAUTH_SCOPES = 'account_info offline_access minecraft_server_session'
 
 export interface DeviceCodeStart {
   deviceCode: string
@@ -59,7 +65,7 @@ export async function startDeviceCodeLogin(
     .post(ELYBY_OAUTH_DEVICE_URL, {
       form: {
         client_id: clientId,
-        scope: 'account_info offline_access minecraft_server_session'
+        scope: OAUTH_SCOPES
       },
       responseType: 'json',
       throwHttpErrors: false,
@@ -100,7 +106,7 @@ export async function pollDeviceCodeLogin(
   const body = res.body as TokenSuccess & TokenError
 
   if (res.statusCode >= 200 && res.statusCode < 300 && body.access_token) {
-    const account = await accountFromOAuthToken(body.access_token)
+    const account = await accountFromOAuthToken(body.access_token, body.refresh_token)
     return { status: 'success', account, refreshToken: body.refresh_token }
   }
 
@@ -123,7 +129,10 @@ export async function pollDeviceCodeLogin(
   }
 }
 
-async function accountFromOAuthToken(accessToken: string): Promise<ElybyAccount> {
+async function accountFromOAuthToken(
+  accessToken: string,
+  refreshToken?: string
+): Promise<ElybyAccount> {
   const info = await fetchElyAccountInfo(accessToken)
 
   if (!info?.uuid || !info?.username) {
@@ -136,8 +145,74 @@ async function accountFromOAuthToken(accessToken: string): Promise<ElybyAccount>
     username: info.username,
     uuid: normalizeProfileUuid(info.uuid),
     displayName: info.username,
-    elyId: parseElyAccountId(info.id)
+    elyId: parseElyAccountId(info.id),
+    ...(refreshToken ? { refreshToken } : {})
   }
+}
+
+export async function refreshOAuthToken(
+  refreshToken: string,
+  clientId = ELYBY_OAUTH_CLIENT_ID
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const res = await got.post(ELYBY_OAUTH_TOKEN_URL, {
+    form: {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      scope: OAUTH_SCOPES
+    },
+    responseType: 'json',
+    throwHttpErrors: false,
+    timeout: { request: 30000 }
+  })
+
+  const body = res.body as TokenSuccess & TokenError
+  if (res.statusCode < 200 || res.statusCode >= 300 || !body.access_token) {
+    throw new Error(
+      body.error_description ||
+        body.message ||
+        body.error ||
+        `OAuth refresh failed (${res.statusCode})`
+    )
+  }
+
+  return {
+    accessToken: body.access_token,
+    // Ely.by omits refresh_token on refresh responses — keep the existing one.
+    refreshToken: body.refresh_token || refreshToken
+  }
+}
+
+/**
+ * Ensure the account still has a playable Ely.by access token before Minecraft launch.
+ * Prefers OAuth refresh when available; falls back to Yggdrasil /auth/refresh.
+ */
+export async function ensurePlayableSession(
+  account: ElybyAccount,
+  clientToken: string
+): Promise<ElybyAccount> {
+  const info = await fetchElyAccountInfo(account.accessToken)
+  if (info?.uuid && info?.username) {
+    return {
+      ...account,
+      uuid: normalizeProfileUuid(info.uuid),
+      username: info.username,
+      displayName: account.displayName || info.username,
+      elyId: account.elyId || parseElyAccountId(info.id) || undefined
+    }
+  }
+
+  if (account.refreshToken) {
+    const tokens = await refreshOAuthToken(account.refreshToken)
+    return accountFromOAuthToken(tokens.accessToken, tokens.refreshToken)
+  }
+
+  const ygg = await refreshYggdrasil(account.accessToken, clientToken)
+  if (ygg.statusCode === 200 && ygg.body && 'accessToken' in ygg.body) {
+    return accountFromAuthResponse(ygg.body)
+  }
+
+  throw new Error('Ely.by session expired — please sign in again')
 }
 
 export async function fetchElyAccountInfo(accessToken: string): Promise<AccountInfo | null> {
