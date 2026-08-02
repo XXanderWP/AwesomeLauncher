@@ -128,10 +128,10 @@ jobs:
 
           | File | Platform |
           |------|----------|
-          | \`AwesomeCraftLauncher-setup-${VERSION}.exe\` | Windows (installer) |
-          | \`AwesomeCraftLauncher-setup-${VERSION}.AppImage\` | Linux |
-          | \`AwesomeCraftLauncher-setup-${VERSION}-arm64.dmg\` | macOS (Apple Silicon) |
-          | \`AwesomeCraftLauncher-setup-${VERSION}-x64.dmg\` | macOS (Intel) |
+          | \`AwesomeLauncher.exe\` | Windows (installer) |
+          | \`AwesomeLauncher.AppImage\` | Linux |
+          | \`AwesomeLauncher-arm64.dmg\` | macOS (Apple Silicon) |
+          | \`AwesomeLauncher-x64.dmg\` | macOS (Intel) |
 
           macOS users: open \`QUARANTINE-README.txt\` inside the DMG for Gatekeeper removal instructions.
           Auto-update also publishes \`.zip\` builds for Apple Silicon / Intel; install manually from the DMG.
@@ -142,10 +142,10 @@ jobs:
 
           | Файл | Платформа |
           |------|-----------|
-          | \`AwesomeCraftLauncher-setup-${VERSION}.exe\` | Windows (установщик) |
-          | \`AwesomeCraftLauncher-setup-${VERSION}.AppImage\` | Linux |
-          | \`AwesomeCraftLauncher-setup-${VERSION}-arm64.dmg\` | macOS (Apple Silicon) |
-          | \`AwesomeCraftLauncher-setup-${VERSION}-x64.dmg\` | macOS (Intel) |
+          | \`AwesomeLauncher.exe\` | Windows (установщик) |
+          | \`AwesomeLauncher.AppImage\` | Linux |
+          | \`AwesomeLauncher-arm64.dmg\` | macOS (Apple Silicon) |
+          | \`AwesomeLauncher-x64.dmg\` | macOS (Intel) |
 
           Для macOS откройте \`QUARANTINE-README.txt\` в DMG — там команда снятия карантина.
           Для автообновления в релизе также публикуются \`.zip\` (их скачивать вручную не нужно).
@@ -156,10 +156,10 @@ jobs:
 
           | Файл | Платформа |
           |------|-----------|
-          | \`AwesomeCraftLauncher-setup-${VERSION}.exe\` | Windows (інсталятор) |
-          | \`AwesomeCraftLauncher-setup-${VERSION}.AppImage\` | Linux |
-          | \`AwesomeCraftLauncher-setup-${VERSION}-arm64.dmg\` | macOS (Apple Silicon) |
-          | \`AwesomeCraftLauncher-setup-${VERSION}-x64.dmg\` | macOS (Intel) |
+          | \`AwesomeLauncher.exe\` | Windows (інсталятор) |
+          | \`AwesomeLauncher.AppImage\` | Linux |
+          | \`AwesomeLauncher-arm64.dmg\` | macOS (Apple Silicon) |
+          | \`AwesomeLauncher-x64.dmg\` | macOS (Intel) |
 
           Для macOS відкрийте \`QUARANTINE-README.txt\` у DMG — там команда зняття карантину.
           Для автооновлення в релізі також публікуються \`.zip\` (їх не потрібно завантажувати вручну).

@@ -22,6 +22,11 @@ import {
   shortUuid
 } from '../../src/shared/elybyProfile'
 import { buildLinuxDesktopEntry, quoteDesktopExec } from '../../src/shared/linuxDesktop'
+import {
+  linuxReleaseArtifactName,
+  macReleaseArtifactName,
+  windowsReleaseArtifactName
+} from '../../src/shared/releaseArtifacts'
 
 describe('preservePaths', () => {
   it('normalizes separators', () => {
@@ -213,6 +218,15 @@ describe('linuxDesktop helpers', () => {
     )
     expect(entry).toContain('Categories=Game;')
     expect(entry).toContain('StartupWMClass=AwesomeCraftLauncher')
+  })
+})
+
+describe('releaseArtifacts', () => {
+  it('uses stable AwesomeLauncher names without version or setup', () => {
+    expect(windowsReleaseArtifactName()).toBe('AwesomeLauncher.exe')
+    expect(linuxReleaseArtifactName()).toBe('AwesomeLauncher.AppImage')
+    expect(macReleaseArtifactName('arm64')).toBe('AwesomeLauncher-arm64.dmg')
+    expect(macReleaseArtifactName('x64', 'zip')).toBe('AwesomeLauncher-x64.zip')
   })
 })
 

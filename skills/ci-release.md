@@ -18,12 +18,14 @@ Runs after successful CI on `main` (workflow_run) or manual dispatch.
 
 ## Artifacts
 
-- Windows: `AwesomeCraftLauncher-setup-{version}.exe`
-- Linux: `AwesomeCraftLauncher-setup-{version}.AppImage`
-- macOS DMG: `AwesomeCraftLauncher-setup-{version}-{arch}.dmg` (manual install)
-- macOS ZIP: `AwesomeCraftLauncher-setup-{version}-{arch}.zip` (required by `electron-updater` / Squirrel.Mac)
+Stable filenames (version lives in the GitHub release tag / URL):
 
-macOS packaging must include **both** `dmg` and `zip` targets. DMG-only releases make `latest-mac.yml` list only `.dmg` files and auto-update fails with `ZIP file not provided`.
+- Windows: `AwesomeLauncher.exe`
+- Linux: `AwesomeLauncher.AppImage`
+- macOS DMG: `AwesomeLauncher-{arch}.dmg` (manual install)
+- macOS ZIP: `AwesomeLauncher-{arch}.zip` (required by `electron-updater` / Squirrel.Mac when that path is used)
+
+macOS packaging must include **both** `dmg` and `zip` targets when using Squirrel.Mac. DMG-only releases make `latest-mac.yml` list only `.dmg` files and auto-update fails with `ZIP file not provided`.
 
 ## macOS quarantine
 
