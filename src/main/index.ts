@@ -1,4 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import fs from 'fs-extra'
+import os from 'os'
 import { join } from 'path'
 import { ConfigService } from './services/config/ConfigService'
 import { DistroService } from './services/distro/DistroService'
@@ -11,9 +13,12 @@ import {
   refresh,
   invalidate
 } from './services/auth/elybyAuth'
+import { pollDeviceCodeLogin, startDeviceCodeLogin } from './services/auth/elybyDeviceCode'
 import { fetchServerStatus } from './services/server-status/serverStatus'
 import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
+import { bytesToMb } from '../shared/ramValidation'
+import { instanceDirectory } from './utils/paths'
 
 let mainWindow: BrowserWindow | null = null
 let configService: ConfigService
@@ -21,6 +26,7 @@ let distroService: DistroService
 let installService: InstallService
 let gameService: GameService
 let updaterService: UpdaterService
+let activeDeviceCode: string | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -60,6 +66,17 @@ function registerIpc(): void {
   ipcMain.handle(IPC.APP_VERSION, () => app.getVersion())
   ipcMain.handle(IPC.APP_PLATFORM, () => process.platform)
   ipcMain.handle(IPC.SYSTEM_LOCALE, () => app.getLocale())
+  ipcMain.handle(IPC.SYSTEM_MEMORY, () => ({
+    totalMb: bytesToMb(os.totalmem()),
+    freeMb: bytesToMb(os.freemem())
+  }))
+  ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+      throw new Error('Only http(s) URLs can be opened')
+    }
+    await shell.openExternal(url)
+    return true
+  })
 
   ipcMain.handle(IPC.CONFIG_GET, () => configService.get())
   ipcMain.handle(IPC.CONFIG_UPDATE, async (_e, partial: Partial<AppConfig>) => {
@@ -108,6 +125,33 @@ function registerIpc(): void {
     }
   )
 
+  ipcMain.handle(IPC.AUTH_DEVICE_START, async () => {
+    const started = await startDeviceCodeLogin()
+    activeDeviceCode = started.deviceCode
+    return started
+  })
+
+  ipcMain.handle(IPC.AUTH_DEVICE_POLL, async () => {
+    if (!activeDeviceCode) {
+      return { status: 'expired' as const }
+    }
+    const result = await pollDeviceCodeLogin(activeDeviceCode)
+    if (result.status === 'success') {
+      activeDeviceCode = null
+      const cfg = await configService.setAccount(result.account, true)
+      return { ...result, config: cfg }
+    }
+    if (result.status === 'expired' || result.status === 'denied') {
+      activeDeviceCode = null
+    }
+    return result
+  })
+
+  ipcMain.handle(IPC.AUTH_DEVICE_CANCEL, () => {
+    activeDeviceCode = null
+    return true
+  })
+
   ipcMain.handle(IPC.AUTH_LOGOUT, async () => {
     const account = configService.getSelectedAccount()
     if (account) {
@@ -142,6 +186,26 @@ function registerIpc(): void {
   ipcMain.handle(IPC.INSTALL_LAUNCH, async (_e, serverId: string) => {
     await configService.update({ selectedServerId: serverId })
     return gameService.launch(serverId)
+  })
+
+  ipcMain.handle(IPC.INSTANCE_OPEN, async (_e, serverId: string) => {
+    const dir = instanceDirectory(configService.getDataDirectory(), serverId)
+    await fs.ensureDir(dir)
+    const err = await shell.openPath(dir)
+    if (err) throw new Error(err)
+    return true
+  })
+
+  ipcMain.handle(IPC.INSTANCE_DELETE, async (_e, serverId: string) => {
+    if (gameService.getState().running) {
+      throw new Error('Stop the game before deleting an instance')
+    }
+    const dir = instanceDirectory(configService.getDataDirectory(), serverId)
+    if (await fs.pathExists(dir)) {
+      await fs.remove(dir)
+    }
+    await configService.clearJavaOverride(serverId)
+    return true
   })
 
   ipcMain.handle(IPC.GAME_STATE, () => gameService.getState())

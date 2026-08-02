@@ -1,5 +1,6 @@
 import { getServerStatus } from 'helios-core/mojang'
 import type { ServerOnlineStatus } from '../../../shared/types'
+import { extractMotdText } from '../../../shared/serverDisplayName'
 
 export async function fetchServerStatus(
   host: string,
@@ -14,10 +15,7 @@ export async function fetchServerStatus(
       playersOnline: status.players?.online ?? 0,
       playersMax: status.players?.max ?? 0,
       versionName: status.version?.name ?? null,
-      description:
-        typeof status.description === 'string'
-          ? status.description
-          : status.description?.text || null,
+      description: extractMotdText(status.description),
       latencyMs: Date.now() - started
     }
   } catch (err) {

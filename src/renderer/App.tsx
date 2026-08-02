@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AppConfig,
   DistroServerSummary,
   GameLogLine,
   GameProcessState,
+  LanguageSetting,
   ProgressEvent,
   ServerOnlineStatus,
   UpdateStatus
@@ -41,6 +42,7 @@ export function App(): React.JSX.Element {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [langTick, setLangTick] = useState(0)
+  const [totalMemoryMb, setTotalMemoryMb] = useState(8192)
 
   const account = useMemo(() => {
     if (!config?.selectedAccountUuid) return null
@@ -51,14 +53,15 @@ export function App(): React.JSX.Element {
     let cancelled = false
     async function boot(): Promise<void> {
       try {
-        const [cfg, ver, locale, distro, gState, gLogs, uStatus] = await Promise.all([
+        const [cfg, ver, locale, distro, gState, gLogs, uStatus, memory] = await Promise.all([
           window.awesomeAPI.getConfig(),
           window.awesomeAPI.getVersion(),
           window.awesomeAPI.getSystemLocale(),
           window.awesomeAPI.refreshDistro().catch(() => window.awesomeAPI.getDistro()),
           window.awesomeAPI.getGameState(),
           window.awesomeAPI.getGameLogs(),
-          window.awesomeAPI.getUpdateStatus()
+          window.awesomeAPI.getUpdateStatus(),
+          window.awesomeAPI.getSystemMemory()
         ])
         if (cancelled) return
         const lang = resolveLanguage(cfg.settings.launcher.language, locale)
@@ -69,6 +72,7 @@ export function App(): React.JSX.Element {
         setGameState(gState)
         setLogs(gLogs)
         setUpdateStatus(uStatus)
+        setTotalMemoryMb(memory.totalMb)
         setLangTick((x) => x + 1)
         setReady(true)
 
@@ -102,6 +106,9 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
+  const configRef = useRef(config)
+  configRef.current = config
+
   useEffect(() => {
     if (!servers.length) return
     let cancelled = false
@@ -113,8 +120,26 @@ export function App(): React.JSX.Element {
           return [server.id, status] as const
         })
       )
-      if (!cancelled) {
-        setStatuses(Object.fromEntries(entries))
+      if (cancelled) return
+
+      setStatuses(Object.fromEntries(entries))
+
+      const current = configRef.current
+      if (!current) return
+
+      const cachedServerNames = { ...current.cachedServerNames }
+      let changed = false
+      for (const [serverId, status] of entries) {
+        const liveName = status.online ? status.description?.trim() : ''
+        if (liveName && cachedServerNames[serverId] !== liveName) {
+          cachedServerNames[serverId] = liveName
+          changed = true
+        }
+      }
+
+      if (changed) {
+        const updated = await window.awesomeAPI.updateConfig({ cachedServerNames })
+        if (!cancelled) setConfig(updated)
       }
     }
 
@@ -129,6 +154,12 @@ export function App(): React.JSX.Element {
   async function applyLanguageFromConfig(next: AppConfig): Promise<void> {
     const locale = await window.awesomeAPI.getSystemLocale()
     setLanguage(resolveLanguage(next.settings.launcher.language, locale))
+    setLangTick((x) => x + 1)
+  }
+
+  async function previewLanguage(language: LanguageSetting): Promise<void> {
+    const locale = await window.awesomeAPI.getSystemLocale()
+    setLanguage(resolveLanguage(language, locale))
     setLangTick((x) => x + 1)
   }
 
@@ -197,11 +228,12 @@ export function App(): React.JSX.Element {
         {view === 'home' && (
           <HomePage
             config={config}
-            accountName={account.displayName}
+            account={account}
             servers={servers}
             statuses={statuses}
             progress={progress}
             gameState={gameState}
+            totalMemoryMb={totalMemoryMb}
             onSelectServer={async (serverId) => {
               const next = await window.awesomeAPI.updateConfig({ selectedServerId: serverId })
               setConfig(next)
@@ -230,12 +262,14 @@ export function App(): React.JSX.Element {
               setConfig(next)
             }}
             onOpenLogs={() => setView('logs')}
+            onConfigChange={async (next) => setConfig(next)}
           />
         )}
         {view === 'settings' && (
           <SettingsPage
             config={config}
             updateStatus={updateStatus}
+            totalMemoryMb={totalMemoryMb}
             onChange={async (partial) => {
               const next = await window.awesomeAPI.updateConfig(partial)
               setConfig(next)
@@ -245,6 +279,7 @@ export function App(): React.JSX.Element {
               const next = await window.awesomeAPI.selectDataDirectory()
               setConfig(next)
             }}
+            onPreviewLanguage={previewLanguage}
           />
         )}
         {view === 'logs' && (

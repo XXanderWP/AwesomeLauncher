@@ -44,7 +44,14 @@ export interface AppConfig {
     game: GameSettings
     launcher: LauncherSettings
   }
+  /** Shared Java defaults; per-server overrides live in javaByServer. */
+  javaDefaults: JavaServerSettings
   javaByServer: Record<string, JavaServerSettings>
+  /**
+   * Last known live server names from status MOTD, keyed by distro server id.
+   * Used when the game server is offline.
+   */
+  cachedServerNames: Record<string, string>
 }
 
 export interface DistroServerSummary {
@@ -73,6 +80,7 @@ export interface ServerOnlineStatus {
   playersOnline: number
   playersMax: number
   versionName: string | null
+  /** Plain-text MOTD / live server name from status ping. */
   description: string | null
   latencyMs: number | null
   error?: string
@@ -119,6 +127,12 @@ export const NEWS_RSS_URL = 'https://files.awesome-craft.ru/launcher/news.rss'
 export const ELYBY_AUTH_URL = 'https://authserver.ely.by'
 export const ELYBY_SKIN_URL = 'https://skinsystem.ely.by/skins'
 export const ELYBY_REGISTER_URL = 'https://account.ely.by/register'
+export const ELYBY_OAUTH_TOKEN_URL = 'https://account.ely.by/api/oauth2/v1/token'
+export const ELYBY_OAUTH_DEVICE_URL = 'https://account.ely.by/api/oauth2/v1/devicecode'
+export const ELYBY_ACCOUNT_INFO_URL = 'https://account.ely.by/api/account/v1/info'
+export const ELYBY_DEVICE_VERIFY_URL = 'https://account.ely.by/code'
+/** Default public Ely.by OAuth client id (community launchers). */
+export const ELYBY_OAUTH_CLIENT_ID = 'ely'
 export const DEFAULT_DATA_DIR_NAME = '.awesomecraftlauncher'
 
 export const IPC = {
@@ -126,6 +140,9 @@ export const IPC = {
   CONFIG_UPDATE: 'config:update',
   CONFIG_SELECT_DIR: 'config:select-directory',
   AUTH_LOGIN: 'auth:login',
+  AUTH_DEVICE_START: 'auth:device-start',
+  AUTH_DEVICE_POLL: 'auth:device-poll',
+  AUTH_DEVICE_CANCEL: 'auth:device-cancel',
   AUTH_LOGOUT: 'auth:logout',
   AUTH_REFRESH: 'auth:refresh',
   DISTRO_GET: 'distro:get',
@@ -133,6 +150,8 @@ export const IPC = {
   SERVER_STATUS: 'server:status',
   INSTALL_VERIFY: 'install:verify',
   INSTALL_LAUNCH: 'install:launch',
+  INSTANCE_OPEN: 'instance:open',
+  INSTANCE_DELETE: 'instance:delete',
   GAME_STATE: 'game:state',
   GAME_LOGS: 'game:logs',
   GAME_KILL: 'game:kill',
@@ -144,6 +163,8 @@ export const IPC = {
   APP_VERSION: 'app:version',
   APP_PLATFORM: 'app:platform',
   SYSTEM_LOCALE: 'system:locale',
+  SYSTEM_MEMORY: 'system:memory',
+  SHELL_OPEN_EXTERNAL: 'shell:open-external',
   EVENT_PROGRESS: 'event:progress',
   EVENT_GAME_LOG: 'event:game-log',
   EVENT_GAME_STATE: 'event:game-state',

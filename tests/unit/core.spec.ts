@@ -14,6 +14,8 @@ import {
   backupPreservedFiles,
   restorePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
+import { validateRamLimits, clampRamMb } from '../../src/shared/ramValidation'
+import { elybySkinUrl, elybyProfileUrl, shortUuid } from '../../src/shared/elybyProfile'
 
 describe('preservePaths', () => {
   it('normalizes separators', () => {
@@ -122,6 +124,42 @@ describe('elybyAuth helpers', () => {
       uuid: '01234567-89ab-cdef-0123-456789abcdef',
       displayName: 'Steve'
     })
+  })
+})
+
+describe('ramValidation', () => {
+  it('flags min>max and full memory as unsavable', () => {
+    const bad = validateRamLimits(8000, 4000, 16000)
+    expect(bad.minGreaterThanMax).toBe(true)
+    expect(bad.canSave).toBe(false)
+
+    const full = validateRamLimits(2048, 16000, 16000)
+    expect(full.maxAtOrAboveTotal).toBe(true)
+    expect(full.canSave).toBe(false)
+  })
+
+  it('sets yellow and red warning levels by ratio', () => {
+    expect(validateRamLimits(1024, 9000, 16000).warningLevel).toBe('yellow')
+    expect(validateRamLimits(1024, 13000, 16000).warningLevel).toBe('red')
+    expect(validateRamLimits(1024, 4096, 16000).warningLevel).toBe('none')
+  })
+
+  it('clamps ram values', () => {
+    expect(clampRamMb(100, 512, 8192)).toBe(512)
+    expect(clampRamMb(99999, 512, 8192)).toBe(8192)
+  })
+})
+
+describe('elybyProfile helpers', () => {
+  it('builds skin and profile urls', () => {
+    expect(elybySkinUrl('Steve', 1)).toContain('/skins/Steve.png')
+    expect(elybyProfileUrl({ username: 'steve', displayName: 'Steve' })).toBe(
+      'https://ely.by/Steve'
+    )
+  })
+
+  it('shortens uuids', () => {
+    expect(shortUuid('01234567-89ab-cdef-0123-456789abcdef')).toBe('01234567…cdef')
   })
 })
 

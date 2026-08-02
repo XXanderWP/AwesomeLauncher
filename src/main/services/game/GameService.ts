@@ -65,14 +65,10 @@ export class GameService {
       throw new Error(`Unknown server: ${serverId}`)
     }
 
-    const javaDefaults = this.config.getJavaSettings(serverId, {
+    const javaSettings = this.config.getJavaSettings(serverId, {
       minRamMb: summary.java.ram.minimum,
       maxRamMb: summary.java.ram.recommended
     })
-    // Ensure defaults are persisted for UI
-    if (!cfg.javaByServer[serverId]) {
-      await this.config.setJavaSettings(serverId, javaDefaults)
-    }
 
     const dataDir = this.config.getDataDirectory()
     const commonDir = path.join(dataDir, 'common')
@@ -80,10 +76,7 @@ export class GameService {
 
     setLaunchBridge({
       config: this.config,
-      javaSettings: this.config.getJavaSettings(serverId, {
-        minRamMb: summary.java.ram.minimum,
-        maxRamMb: summary.java.ram.recommended
-      }),
+      javaSettings,
       gameSettings: cfg.settings.game,
       authUser: account,
       gameDir,
