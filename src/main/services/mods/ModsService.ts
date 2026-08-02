@@ -122,7 +122,8 @@ export class ModsService {
       version: meta.version,
       description: meta.description,
       authors: meta.authors,
-      iconDataUrl: meta.iconDataUrl
+      iconDataUrl: meta.iconDataUrl,
+      homepage: meta.homepage
     }
   }
 

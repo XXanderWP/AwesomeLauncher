@@ -284,6 +284,7 @@ displayName="Example Mod"
 description="A short desc"
 authors="Alice, Bob"
 logoFile="logo.png"
+displayURL="https://example.com/mod"
 `)
     expect(parsed).toEqual({
       id: 'example',
@@ -291,7 +292,8 @@ logoFile="logo.png"
       version: '1.2.3',
       description: 'A short desc',
       authors: ['Alice', 'Bob'],
-      logoFile: 'logo.png'
+      logoFile: 'logo.png',
+      homepage: 'https://example.com/mod'
     })
   })
 
@@ -308,7 +310,11 @@ logoFile="logo.png"
           version: '9.9.9',
           description: 'Hello',
           authors: ['Xander'],
-          icon: 'icon.png'
+          icon: 'icon.png',
+          contact: {
+            homepage: 'https://modrinth.com/mod/demo',
+            sources: 'https://github.com/demo/mod'
+          }
         }),
         'utf8'
       )
@@ -329,6 +335,7 @@ logoFile="logo.png"
     expect(meta.version).toBe('9.9.9')
     expect(meta.description).toBe('Hello')
     expect(meta.authors).toEqual(['Xander'])
+    expect(meta.homepage).toBe('https://modrinth.com/mod/demo')
     expect(meta.iconDataUrl).toMatch(/^data:image\/png;base64,/)
 
     await fs.outputFile(path.join(dir, 'other.jar.disabled'), 'x')

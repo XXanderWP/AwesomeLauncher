@@ -36,6 +36,18 @@ function ModRow({
         <div className="mod-title">
           <strong>{mod.name}</strong>
           {mod.version ? <span className="mod-version">v{mod.version}</span> : null}
+          {mod.homepage ? (
+            <button
+              type="button"
+              className="btn btn-sm mod-page-btn"
+              title={mod.homepage}
+              onClick={() => {
+                if (mod.homepage) void window.awesomeAPI.openExternal(mod.homepage)
+              }}
+            >
+              {t('instance.mods.page')}
+            </button>
+          ) : null}
         </div>
         {mod.description ? <p className="mod-desc">{mod.description}</p> : null}
         {mod.authors.length > 0 ? (
@@ -178,33 +190,40 @@ export function InstanceModsModal({
           <div className="warn-box warning">{t('instance.mods.gameRunning')}</div>
         ) : null}
         {error ? <div className="warn-box danger">{error}</div> : null}
-        {loading && !payload ? <p className="muted">{t('instance.mods.loading')}</p> : null}
-
-        <h3 className="mods-section-title">{t('instance.mods.user')}</h3>
-        {userMods.length === 0 ? (
-          <p className="muted">{t('instance.mods.userEmpty')}</p>
-        ) : (
-          <div className="mods-list">
-            {userMods.map((mod) => (
-              <ModRow
-                key={mod.filePath}
-                mod={mod}
-                busy={busyPath === mod.filePath || gameRunning}
-                onToggle={(m, enabled) => void toggle(m, enabled)}
-                onDelete={(m) => void remove(m)}
-              />
-            ))}
+        {loading && !payload ? (
+          <div className="mods-loading" role="status" aria-live="polite">
+            <div className="boot-spinner" aria-hidden="true" />
+            <p className="mods-loading-label">{t('instance.mods.loading')}</p>
           </div>
-        )}
-
-        <h3 className="mods-section-title">{t('instance.mods.common')}</h3>
-        {commonMods.length === 0 ? (
-          <p className="muted">{t('instance.mods.commonEmpty')}</p>
         ) : (
-          <div className="mods-list">
-            {commonMods.map((mod) => (
-              <ModRow key={mod.filePath} mod={mod} busy />
-            ))}
+          <div className="mods-scroll">
+            <h3 className="mods-section-title">{t('instance.mods.user')}</h3>
+            {userMods.length === 0 ? (
+              <div className="warn-box warning">{t('instance.mods.userEmpty')}</div>
+            ) : (
+              <div className="mods-list">
+                {userMods.map((mod) => (
+                  <ModRow
+                    key={mod.filePath}
+                    mod={mod}
+                    busy={busyPath === mod.filePath || gameRunning}
+                    onToggle={(m, enabled) => void toggle(m, enabled)}
+                    onDelete={(m) => void remove(m)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <h3 className="mods-section-title">{t('instance.mods.common')}</h3>
+            {commonMods.length === 0 ? (
+              <p className="muted">{t('instance.mods.commonEmpty')}</p>
+            ) : (
+              <div className="mods-list">
+                {commonMods.map((mod) => (
+                  <ModRow key={mod.filePath} mod={mod} busy />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

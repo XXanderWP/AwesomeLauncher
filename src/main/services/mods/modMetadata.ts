@@ -74,6 +74,21 @@ function readZipEntry(zip: AdmZip, entryName: string): Buffer | null {
   }
 }
 
+function asHttpUrl(value: unknown): string | null {
+  const raw = asString(value)
+  if (!raw) return null
+  if (!/^https?:\/\//i.test(raw)) return null
+  return raw
+}
+
+function pickHomepage(...candidates: unknown[]): string | null {
+  for (const candidate of candidates) {
+    const url = asHttpUrl(candidate)
+    if (url) return url
+  }
+  return null
+}
+
 function parseFabricModJson(raw: string): {
   id: string | null
   name: string | null
@@ -81,6 +96,7 @@ function parseFabricModJson(raw: string): {
   description: string | null
   authors: string[]
   icon: string | null
+  homepage: string | null
 } | null {
   try {
     const json = JSON.parse(raw) as Record<string, unknown>
@@ -91,13 +107,18 @@ function parseFabricModJson(raw: string): {
       const values = Object.values(iconValue as Record<string, unknown>)
       icon = asString(values[0])
     }
+    const contact =
+      json.contact && typeof json.contact === 'object'
+        ? (json.contact as Record<string, unknown>)
+        : null
     return {
       id: asString(json.id),
       name: asString(json.name),
       version: asString(json.version),
       description: asString(json.description),
       authors: asStringList(json.authors),
-      icon
+      icon,
+      homepage: pickHomepage(contact?.homepage, contact?.sources, contact?.issues)
     }
   } catch {
     return null
@@ -112,11 +133,12 @@ export function parseModsToml(raw: string): {
   description: string | null
   authors: string[]
   logoFile: string | null
+  homepage: string | null
 } {
   const modsBlock = raw.match(/\[\[mods\]\]([\s\S]*?)(?=\n\[\[|$)/)
   const block = modsBlock ? modsBlock[1] : raw
-  const pick = (key: string): string | null => {
-    const m = block.match(new RegExp(`${key}\\s*=\\s*"([^"]*)"`, 'i'))
+  const pick = (key: string, source: string = block): string | null => {
+    const m = source.match(new RegExp(`${key}\\s*=\\s*"([^"]*)"`, 'i'))
     return m?.[1]?.trim() || null
   }
   const authorsRaw = pick('authors')
@@ -131,7 +153,8 @@ export function parseModsToml(raw: string): {
           .map((s) => s.trim())
           .filter(Boolean)
       : [],
-    logoFile: pick('logoFile')
+    logoFile: pick('logoFile'),
+    homepage: pickHomepage(pick('displayURL'), pick('displayURL', raw))
   }
 }
 
@@ -146,6 +169,7 @@ export function readModMetadataFromJar(filePath: string): {
   description: string | null
   authors: string[]
   iconDataUrl: string | null
+  homepage: string | null
 } {
   const fileName = path.basename(filePath)
   const fallback = {
@@ -154,7 +178,8 @@ export function readModMetadataFromJar(filePath: string): {
     version: '',
     description: null as string | null,
     authors: [] as string[],
-    iconDataUrl: null as string | null
+    iconDataUrl: null as string | null,
+    homepage: null as string | null
   }
 
   try {
@@ -176,7 +201,8 @@ export function readModMetadataFromJar(filePath: string): {
           version: parsed.version || '',
           description: parsed.description,
           authors: parsed.authors,
-          iconDataUrl
+          iconDataUrl,
+          homepage: parsed.homepage
         }
       }
     }
@@ -199,7 +225,8 @@ export function readModMetadataFromJar(filePath: string): {
         version: parsed.version || '',
         description: parsed.description,
         authors: parsed.authors,
-        iconDataUrl
+        iconDataUrl,
+        homepage: parsed.homepage
       }
     }
   } catch {

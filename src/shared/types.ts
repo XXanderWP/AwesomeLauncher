@@ -142,6 +142,7 @@ export interface ModInfo {
   description: string | null
   authors: string[]
   iconDataUrl: string | null
+  homepage: string | null
 }
 
 export interface ServerModsPayload {
