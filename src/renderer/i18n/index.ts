@@ -101,6 +101,10 @@ const translations = {
     'settings.checkUpdate': 'Check for updates',
     'settings.downloadUpdate': 'Download update',
     'settings.installUpdate': 'Install and restart',
+    'settings.installUpdateMac': 'Install (admin password)',
+    'settings.macUpdateHint':
+      'macOS updates are installed manually. Install asks for an admin password, downloads the DMG, replaces the app, and removes Gatekeeper quarantine.',
+    'settings.macInstalling': 'downloading & installing…',
     'settings.save': 'Save',
     'settings.cancel': 'Cancel',
     'settings.saved': 'Settings saved',
@@ -211,6 +215,10 @@ const translations = {
     'settings.checkUpdate': 'Проверить обновления',
     'settings.downloadUpdate': 'Скачать обновление',
     'settings.installUpdate': 'Установить и перезапустить',
+    'settings.installUpdateMac': 'Установить (пароль администратора)',
+    'settings.macUpdateHint':
+      'На macOS обновления ставятся вручную. Кнопка установки запросит пароль администратора, скачает DMG, заменит приложение и снимет карантин Gatekeeper.',
+    'settings.macInstalling': 'скачивание и установка…',
     'settings.save': 'Сохранить',
     'settings.cancel': 'Отмена',
     'settings.saved': 'Настройки сохранены',
@@ -321,6 +329,10 @@ const translations = {
     'settings.checkUpdate': 'Перевірити оновлення',
     'settings.downloadUpdate': 'Завантажити оновлення',
     'settings.installUpdate': 'Встановити і перезапустити',
+    'settings.installUpdateMac': 'Встановити (пароль адміністратора)',
+    'settings.macUpdateHint':
+      'На macOS оновлення встановлюються вручну. Кнопка встановлення запросить пароль адміністратора, завантажить DMG, замінить програму і зніме карантин Gatekeeper.',
+    'settings.macInstalling': 'завантаження і встановлення…',
     'settings.save': 'Зберегти',
     'settings.cancel': 'Скасувати',
     'settings.saved': 'Налаштування збережено',

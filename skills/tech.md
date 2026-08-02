@@ -25,7 +25,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 - `DistroService` loads Helios-compatible `distribution.json`
 - `InstallService` uses helios-core `FullRepair` + Java discovery, then restores preserved player configs
 - `GameService` launches via legacy Fabric/Helios ProcessBuilder adapted for Ely.by (`authlib-injector`)
-- `UpdaterService` uses `electron-updater` against GitHub Releases
+- `UpdaterService` uses `electron-updater` on Windows/Linux; macOS uses a privileged manual DMG replace (`osascript` + `xattr`) because the app is unsigned
 
 ## Design constraints
 

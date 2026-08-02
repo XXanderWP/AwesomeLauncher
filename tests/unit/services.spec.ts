@@ -17,6 +17,13 @@ import {
   resolveServerDisplayName,
   stripMotdFormatting
 } from '../../src/shared/serverDisplayName'
+import {
+  buildMacPrivilegedUpdateScript,
+  compareVersions,
+  macArchLabel,
+  pickMacDmgAsset,
+  resolveMacAppBundlePath
+} from '../../src/main/services/updater/macManualUpdate'
 
 jest.mock('helios-core/mojang', () => ({
   getServerStatus: jest.fn(async () => ({
@@ -124,6 +131,50 @@ describe('serverDisplayName', () => {
     expect(resolveServerDisplayName('Distro Name', null, 'Cached')).toBe('Cached')
     expect(resolveServerDisplayName('Distro Name', '  ', null)).toBe('Distro Name')
     expect(resolveServerDisplayName('Distro Name', undefined, undefined)).toBe('Distro Name')
+  })
+})
+
+describe('macManualUpdate helpers', () => {
+  it('compares versions and resolves arch / app path', () => {
+    expect(compareVersions('1.1.2', '1.1.1')).toBeGreaterThan(0)
+    expect(compareVersions('v1.0.0', '1.0.0')).toBe(0)
+    expect(compareVersions('1.0.0', '1.1.0')).toBeLessThan(0)
+    expect(macArchLabel('arm64')).toBe('arm64')
+    expect(macArchLabel('x64')).toBe('x64')
+    expect(
+      resolveMacAppBundlePath(
+        '/Applications/AwesomeCraftLauncher.app/Contents/MacOS/AwesomeCraftLauncher'
+      )
+    ).toBe('/Applications/AwesomeCraftLauncher.app')
+  })
+
+  it('picks the arch-specific DMG asset', () => {
+    const assets = [
+      {
+        name: 'AwesomeLauncher-x64.dmg',
+        browser_download_url: 'https://example.com/x64.dmg'
+      },
+      {
+        name: 'AwesomeLauncher-arm64.dmg',
+        browser_download_url: 'https://example.com/arm64.dmg'
+      }
+    ]
+    expect(pickMacDmgAsset(assets, '1.1.2', 'arm64')?.browser_download_url).toContain('arm64')
+    expect(pickMacDmgAsset(assets, '1.1.2', 'x64')?.name).toContain('x64')
+  })
+
+  it('builds a privileged install script with download, replace, and xattr', () => {
+    const script = buildMacPrivilegedUpdateScript({
+      dmgUrl: 'https://example.com/app.dmg',
+      appPath: '/Applications/AwesomeCraftLauncher.app'
+    })
+    expect(script).toContain("URL='https://example.com/app.dmg'")
+    expect(script).toContain('curl -fL')
+    expect(script).toContain('hdiutil attach')
+    expect(script).toContain('ditto')
+    expect(script).toContain('xattr -dr com.apple.quarantine')
+    expect(script).not.toContain('with administrator privileges')
+    expect(script).toContain('open "$APP_DEST"')
   })
 })
 

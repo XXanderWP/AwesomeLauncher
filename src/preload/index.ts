@@ -82,7 +82,7 @@ const api = {
   getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_STATUS),
   checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
   downloadUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_DOWNLOAD),
-  installUpdate: (): Promise<boolean> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+  installUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
 
   onProgress: (cb: (event: ProgressEvent) => void): (() => void) => {
     const listener = (_: Electron.IpcRendererEvent, payload: ProgressEvent): void => cb(payload)
