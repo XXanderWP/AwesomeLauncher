@@ -124,6 +124,27 @@ export interface UpdateStatus {
   error: string | null
 }
 
+export type ModSource = 'user' | 'common'
+
+export interface ModInfo {
+  id: string
+  fileName: string
+  filePath: string
+  source: ModSource
+  enabled: boolean
+  name: string
+  version: string
+  description: string | null
+  authors: string[]
+  iconDataUrl: string | null
+}
+
+export interface ServerModsPayload {
+  serverId: string
+  userMods: ModInfo[]
+  commonMods: ModInfo[]
+}
+
 export const DISTRO_URL = 'https://files.awesome-craft.ru/launcher/distribution.json'
 export const NEWS_RSS_URL = 'https://files.awesome-craft.ru/launcher/news.rss'
 export const ELYBY_AUTH_URL = 'https://authserver.ely.by'
@@ -154,6 +175,9 @@ export const IPC = {
   INSTALL_LAUNCH: 'install:launch',
   INSTANCE_OPEN: 'instance:open',
   INSTANCE_DELETE: 'instance:delete',
+  MODS_LIST: 'mods:list',
+  MODS_SET_ENABLED: 'mods:set-enabled',
+  MODS_DELETE: 'mods:delete',
   GAME_STATE: 'game:state',
   GAME_LOGS: 'game:logs',
   GAME_KILL: 'game:kill',
