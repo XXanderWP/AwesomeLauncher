@@ -43,7 +43,10 @@ import { getDefaultJvmOptions } from '../../src/shared/javaDefaults'
 const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
 const {
   buildMinecraftProcessEnv,
-  sanitizeLauncherProcessEnv
+  sanitizeLauncherProcessEnv,
+  stageAuthlibInjector,
+  resolveXAuthority,
+  spawnMinecraftProcess
 } = require('../../src/main/services/launch/launchEnv.js')
 
 jest.mock('helios-core/mojang', () => ({
@@ -405,7 +408,7 @@ describe('nativeExtract', () => {
 })
 
 describe('launchEnv', () => {
-  it('whitelists X11 env and drops AppImage/Wayland pollution for Minecraft', () => {
+  it('whitelists X11/XWayland env and drops AppImage/Wayland pollution for Minecraft', () => {
     const env = buildMinecraftProcessEnv(
       {
         PATH: '/tmp/.mount_App/usr/bin:/usr/bin',
@@ -428,6 +431,7 @@ describe('launchEnv', () => {
     expect(env.XDG_SESSION_TYPE).toBe('x11')
     expect(env.GDK_BACKEND).toBe('x11')
     expect(env.GLFW_PLATFORM).toBe('x11')
+    expect(env.SDL_VIDEODRIVER).toBe('x11')
     expect(env.QT_QPA_PLATFORM).toBe('xcb')
     expect(env.DISPLAY).toBe(':0')
     expect(env.HOME).toBe('/home/demo')
@@ -438,6 +442,58 @@ describe('launchEnv', () => {
     expect(env.LD_LIBRARY_PATH).toBeUndefined()
     expect(env.PATH).not.toContain('.mount_')
     expect(env.PATH).toContain('/usr/bin')
+  })
+
+  it('resolves XAUTHORITY from XDG_RUNTIME_DIR xauth cookie on Wayland', () => {
+    const runtime = fs.mkdtempSync(path.join(os.tmpdir(), 'al-xauth-'))
+    const cookie = path.join(runtime, 'xauth_testcookie')
+    fs.writeFileSync(cookie, 'cookie')
+    try {
+      expect(
+        resolveXAuthority({
+          XDG_RUNTIME_DIR: runtime
+        })
+      ).toBe(cookie)
+    } finally {
+      fs.removeSync(runtime)
+    }
+  })
+
+  it('stages authlib-injector into commonDir outside AppImage mounts', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'al-authlib-'))
+    const mountJar = path.join(root, '.mount_AwesomTEST', 'authlib-injector.jar')
+    const commonDir = path.join(root, 'common')
+    fs.ensureDirSync(path.dirname(mountJar))
+    fs.writeFileSync(mountJar, 'authlib-bytes')
+    try {
+      const staged = stageAuthlibInjector(mountJar, commonDir)
+      expect(staged).toBe(
+        path.join(commonDir, 'libraries', 'authlib-injector', 'authlib-injector.jar')
+      )
+      expect(fs.readFileSync(staged, 'utf8')).toBe('authlib-bytes')
+      expect(staged).not.toContain('.mount_')
+    } finally {
+      fs.removeSync(root)
+    }
+  })
+
+  it('spawns Linux Minecraft through env -i for AppImage isolation', () => {
+    const child = spawnMinecraftProcess(
+      '/bin/true',
+      [],
+      {
+        cwd: os.tmpdir(),
+        env: { HOME: '/home/demo', DISPLAY: ':0', PATH: '/usr/bin:/bin' }
+      },
+      'linux'
+    )
+    expect(child.spawnfile).toBe('/usr/bin/env')
+    // spawnargs[0] is the executable for some node versions; check command line pieces
+    const args = child.spawnargs || []
+    expect(args).toEqual(
+      expect.arrayContaining(['-i', 'HOME=/home/demo', 'DISPLAY=:0', '/bin/true'])
+    )
+    child.kill()
   })
 
   it('strips foreign Cursor mounts from the host launcher env', () => {

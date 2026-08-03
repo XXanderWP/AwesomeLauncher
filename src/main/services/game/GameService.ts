@@ -13,6 +13,7 @@ import { resolveAuthlibInjectorPath, setLaunchBridge } from '../launch/launchBri
 
 const require = createRequire(__filename)
 const ProcessBuilder = require('../launch/processbuilder.legacy.js')
+const { stageAuthlibInjector } = require('../launch/launchEnv.js')
 
 export class GameService {
   private child: ChildProcess | null = null
@@ -62,8 +63,8 @@ export class GameService {
       throw new Error('No Ely.by account selected')
     }
 
-    const authlibPath = resolveAuthlibInjectorPath()
-    if (!(await fs.pathExists(authlibPath))) {
+    const bundledAuthlibPath = resolveAuthlibInjectorPath()
+    if (!(await fs.pathExists(bundledAuthlibPath))) {
       throw new Error('authlib-injector.jar is missing from launcher resources')
     }
 
@@ -87,6 +88,8 @@ export class GameService {
     const dataDir = this.config.getDataDirectory()
     const commonDir = path.join(dataDir, 'common')
     const gameDir = path.join(dataDir, 'instances', serverId)
+    // Keep -javaagent off AppImage/fuse mounts (packaged-only GLFW/GLX crashes).
+    const authlibPath = stageAuthlibInjector(bundledAuthlibPath, commonDir)
 
     setLaunchBridge({
       config: this.config,

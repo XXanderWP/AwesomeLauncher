@@ -1,5 +1,4 @@
 const AdmZip = require('adm-zip')
-const child_process = require('child_process')
 const crypto = require('crypto')
 const fs = require('fs-extra')
 const { LoggerUtil } = require('helios-core')
@@ -9,7 +8,7 @@ const os = require('os')
 const path = require('path')
 
 const { LegacyConfigBridge: ConfigManager, getAuthlibInjectorJarPath } = require('./launchBridge')
-const { buildMinecraftProcessEnv } = require('./launchEnv')
+const { buildMinecraftProcessEnv, spawnMinecraftProcess } = require('./launchEnv')
 const ElybyPaths = {
   getAuthlibInjectorJarPath,
   isAuthlibInjectorAvailable: () => require('fs-extra').pathExistsSync(getAuthlibInjectorJarPath())
@@ -130,12 +129,15 @@ class ProcessBuilder {
     if (process.platform === 'linux') {
       const glSummary = [
         `__GL_THREADED_OPTIMIZATIONS=${launchEnv.__GL_THREADED_OPTIMIZATIONS}`,
+        `__GLX_VENDOR_LIBRARY_NAME=${launchEnv.__GLX_VENDOR_LIBRARY_NAME || '(unset)'}`,
         `XDG_SESSION_TYPE=${launchEnv.XDG_SESSION_TYPE || '-'}`,
         `GLFW_PLATFORM=${launchEnv.GLFW_PLATFORM || '-'}`,
         `WAYLAND_DISPLAY=${launchEnv.WAYLAND_DISPLAY || '(unset)'}`,
         `LD_LIBRARY_PATH=${launchEnv.LD_LIBRARY_PATH || '(cleared)'}`,
         `APPDIR=${launchEnv.APPDIR || '(unset)'}`,
-        `DISPLAY=${launchEnv.DISPLAY || '-'}`
+        `DISPLAY=${launchEnv.DISPLAY || '-'}`,
+        `XAUTHORITY=${launchEnv.XAUTHORITY || '(unset)'}`,
+        `spawn=env -i`
       ].join(' ')
       logger.info('Linux GL env:', glSummary)
       console.log(`\x1b[36m[ProcessBuilder]\x1b[0m Linux GL env: ${glSummary}`)
@@ -148,11 +150,13 @@ class ProcessBuilder {
           'XAUTHORITY',
           'GDK_BACKEND',
           'GLFW_PLATFORM',
+          'SDL_VIDEODRIVER',
           'QT_QPA_PLATFORM',
           'LD_LIBRARY_PATH',
           'APPDIR',
           'APPIMAGE',
           '__GL_THREADED_OPTIMIZATIONS',
+          '__GLX_VENDOR_LIBRARY_NAME',
           'PATH'
         ]
         fs.writeFileSync(
@@ -163,7 +167,7 @@ class ProcessBuilder {
         logger.warn('Could not write .launcher-env.log', err)
       }
     }
-    const child = child_process.spawn(
+    const child = spawnMinecraftProcess(
       ConfigManager.getJavaExecutable(this.server.rawServer.id),
       args,
       {
