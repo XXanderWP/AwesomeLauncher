@@ -72,6 +72,13 @@ export function InstanceMapModal({
     caption: '',
     mode: 'chunk' as 'chunk' | 'block'
   })
+  const hoverBlockRef = useRef<{
+    x: number
+    z: number
+    displayName: string
+    blockId: string
+  } | null>(null)
+  const blockLookupSeq = useRef(0)
 
   useEffect(() => {
     if (!open) return
@@ -219,6 +226,25 @@ export function InstanceMapModal({
         const s = 1 / blockPx
         ctx.fillRect(x0, z0, s, s)
         ctx.strokeRect(x0, z0, s, s)
+
+        const hb = hoverBlockRef.current
+        if (hb && hb.x === bx && hb.z === bz) {
+          const fontPx = Math.max(20 / v.scale, 16 / v.scale)
+          ctx.font = `700 ${fontPx}px sans-serif`
+          ctx.textBaseline = 'middle'
+          const label = hb.displayName
+          const labelX = x0 + s + 4 / v.scale
+          const labelY = z0 + s / 2
+          ctx.lineJoin = 'round'
+          ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+          ctx.lineWidth = 5 / v.scale
+          ctx.strokeText(label, labelX, labelY)
+          ctx.strokeStyle = 'rgba(61, 214, 198, 0.95)'
+          ctx.lineWidth = 3 / v.scale
+          ctx.strokeText(label, labelX, labelY)
+          ctx.fillStyle = '#ffffff'
+          ctx.fillText(label, labelX, labelY)
+        }
       } else {
         const cx = Math.floor(worldX / 16)
         const cz = Math.floor(worldZ / 16)
@@ -238,6 +264,7 @@ export function InstanceMapModal({
     const data = map
     const v = viewRef.current
     if (!data || v.hoverPixelX < 0 || v.hoverPixelY < 0) {
+      hoverBlockRef.current = null
       setHud({ coordText: '', caption: '', mode: 'chunk' })
       return
     }
@@ -284,8 +311,38 @@ export function InstanceMapModal({
       }
     }
 
+    if (blockMode) {
+      const cached = hoverBlockRef.current
+      if (cached && cached.x === bx && cached.z === bz) {
+        if (!caption) caption = t('instance.map.caption.block', cached.blockId)
+      } else {
+        const seq = ++blockLookupSeq.current
+        void window.awesomeAPI.lookupXaeroBlock(serverId, host, bx, bz).then((hit) => {
+          if (seq !== blockLookupSeq.current) return
+          if (!hit) {
+            hoverBlockRef.current = null
+            paint()
+            return
+          }
+          hoverBlockRef.current = {
+            x: bx,
+            z: bz,
+            displayName: hit.displayName,
+            blockId: hit.blockId
+          }
+          setHud((prev) => ({
+            ...prev,
+            caption: prev.caption || t('instance.map.caption.block', hit.blockId)
+          }))
+          paint()
+        })
+      }
+    } else {
+      hoverBlockRef.current = null
+    }
+
     setHud({ coordText, caption, mode: blockMode ? 'block' : 'chunk' })
-  }, [map])
+  }, [map, serverId, host, paint])
 
   const fitToView = useCallback(() => {
     const viewport = viewportRef.current

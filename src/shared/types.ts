@@ -233,6 +233,7 @@ export const IPC = {
   INSTANCE_DELETE: 'instance:delete',
   XAERO_MAP_HAS: 'xaero-map:has',
   XAERO_MAP_RENDER: 'xaero-map:render',
+  XAERO_MAP_LOOKUP_BLOCK: 'xaero-map:lookup-block',
   MODS_LIST: 'mods:list',
   MODS_SET_ENABLED: 'mods:set-enabled',
   MODS_DELETE: 'mods:delete',

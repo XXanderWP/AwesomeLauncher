@@ -15,6 +15,7 @@ import {
   listXwmc,
   parseRegionCoords
 } from '../../src/main/services/xaero/XaeroMapService'
+import { worldToRegionLocal } from '../../src/main/services/xaero/xaeroRegionBlocks'
 import fs from 'fs-extra'
 import os from 'os'
 import path from 'path'
@@ -122,6 +123,27 @@ describe('xaero region cache listing', () => {
     } finally {
       await fs.remove(dir)
     }
+  })
+
+  it('maps world blocks to region-local coordinates', () => {
+    expect(worldToRegionLocal(-97, -262)).toEqual({
+      regionX: -1,
+      regionZ: -1,
+      localX: 415,
+      localZ: 250
+    })
+    expect(worldToRegionLocal(0, 0)).toEqual({
+      regionX: 0,
+      regionZ: 0,
+      localX: 0,
+      localZ: 0
+    })
+    expect(worldToRegionLocal(-512, -512)).toEqual({
+      regionX: -1,
+      regionZ: -1,
+      localX: 0,
+      localZ: 0
+    })
   })
 })
 

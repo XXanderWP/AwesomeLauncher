@@ -115,6 +115,18 @@ const api = {
     } | null
     error?: string
   }> => ipcRenderer.invoke(IPC.XAERO_MAP_RENDER, { serverId, host }),
+  lookupXaeroBlock: (
+    serverId: string,
+    host: string,
+    blockX: number,
+    blockZ: number
+  ): Promise<{
+    blockId: string
+    displayName: string
+    biomeId: string | null
+    height: number
+  } | null> =>
+    ipcRenderer.invoke(IPC.XAERO_MAP_LOOKUP_BLOCK, { serverId, host, blockX, blockZ }),
 
   listMods: (serverId: string): Promise<ServerModsPayload> =>
     ipcRenderer.invoke(IPC.MODS_LIST, serverId),

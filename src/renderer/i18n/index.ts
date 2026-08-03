@@ -74,6 +74,7 @@ const translations = {
     'instance.map.caption.waypoint': 'Waypoint: {0} ({1}, {2}, {3})',
     'instance.map.caption.death': 'Death: {0} ({1}, {2}, {3})',
     'instance.map.caption.logout': 'Last exit: {0} ({1}, {2}, {3})',
+    'instance.map.caption.block': 'Block: {0}',
     'instance.mods': 'Mods',
     'instance.mods.title': 'Mods',
     'instance.mods.hint':
@@ -251,6 +252,7 @@ const translations = {
     'instance.map.caption.waypoint': 'Метка: {0} ({1}, {2}, {3})',
     'instance.map.caption.death': 'Смерть: {0} ({1}, {2}, {3})',
     'instance.map.caption.logout': 'Выход: {0} ({1}, {2}, {3})',
+    'instance.map.caption.block': 'Блок: {0}',
     'instance.mods': 'Моды',
     'instance.mods.title': 'Моды',
     'instance.mods.hint':
@@ -430,6 +432,7 @@ const translations = {
     'instance.map.caption.waypoint': 'Мітка: {0} ({1}, {2}, {3})',
     'instance.map.caption.death': 'Смерть: {0} ({1}, {2}, {3})',
     'instance.map.caption.logout': 'Вихід: {0} ({1}, {2}, {3})',
+    'instance.map.caption.block': 'Блок: {0}',
     'instance.mods': 'Моди',
     'instance.mods.title': 'Моди',
     'instance.mods.hint':

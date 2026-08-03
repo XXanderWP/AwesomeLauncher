@@ -360,6 +360,20 @@ function registerIpc(): void {
   ipcMain.handle(IPC.XAERO_MAP_RENDER, async (_e, payload: { serverId: string; host: string }) => {
     return xaeroMapService.renderMap(payload.serverId, payload.host)
   })
+  ipcMain.handle(
+    IPC.XAERO_MAP_LOOKUP_BLOCK,
+    async (
+      _e,
+      payload: { serverId: string; host: string; blockX: number; blockZ: number }
+    ) => {
+      return xaeroMapService.lookupBlock(
+        payload.serverId,
+        payload.host,
+        payload.blockX,
+        payload.blockZ
+      )
+    }
+  )
 
   ipcMain.handle(IPC.MODS_LIST, async (_e, serverId: string) => {
     return modsService.listMods(serverId)

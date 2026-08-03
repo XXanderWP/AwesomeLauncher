@@ -19,8 +19,15 @@ import {
   type XaeroLogoutPosition,
   type XaeroWaypoint
 } from './xaeroWaypoints'
+import {
+  parseRegionBlockIndex,
+  worldToRegionLocal,
+  type XaeroBlockHit
+} from './xaeroRegionBlocks'
 
 const MAX_PNG_SIDE = 4096
+
+type RegionBlockIndex = Map<number, { blockId: string; biomeId: string | null; height: number }>
 
 export interface XaeroMapAvailability {
   available: boolean
@@ -63,6 +70,8 @@ interface CacheCandidate {
 }
 
 export class XaeroMapService {
+  private readonly regionBlockCache = new Map<string, RegionBlockIndex>()
+
   constructor(private readonly getDataDirectory: () => string) {}
 
   multiplayerMapRoot(serverId: string, host: string): string {
@@ -73,6 +82,52 @@ export class XaeroMapService {
       'world-map',
       `Multiplayer_${safeHost}`
     )
+  }
+
+  /**
+   * Resolve the top block id at world block coordinates from `{rx}_{rz}.zip` /
+   * `region.xaero`. Results are cached per region file.
+   */
+  async lookupBlock(
+    serverId: string,
+    host: string,
+    blockX: number,
+    blockZ: number
+  ): Promise<XaeroBlockHit | null> {
+    const mapDir = this.multiplayerMapRoot(serverId, host)
+    if (!host.trim() || !(await fs.pathExists(mapDir))) return null
+
+    const { regionX, regionZ, localX, localZ } = worldToRegionLocal(blockX, blockZ)
+    const mwDirs = await this.findMapWorldDirs(mapDir)
+    for (const mwDir of mwDirs) {
+      const zipPath = path.join(mwDir, `${regionX}_${regionZ}.zip`)
+      if (!(await fs.pathExists(zipPath))) continue
+      try {
+        let index = this.regionBlockCache.get(zipPath)
+        if (!index) {
+          const zip = new AdmZip(zipPath)
+          const entry = zip.getEntry('region.xaero')
+          if (!entry) continue
+          const parsed = parseRegionBlockIndex(entry.getData())
+          index = parsed.blocks
+          this.regionBlockCache.set(zipPath, index)
+        }
+        const pixel = index.get(localX + localZ * 512)
+        if (!pixel) return null
+        const bare = pixel.blockId.includes(':')
+          ? pixel.blockId.slice(pixel.blockId.indexOf(':') + 1)
+          : pixel.blockId
+        return {
+          blockId: pixel.blockId,
+          displayName: bare.replace(/_/g, ' '),
+          biomeId: pixel.biomeId,
+          height: pixel.height
+        }
+      } catch {
+        continue
+      }
+    }
+    return null
   }
 
   async hasMap(serverId: string, host: string): Promise<XaeroMapAvailability> {
