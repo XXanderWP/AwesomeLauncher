@@ -13,6 +13,10 @@ import type {
 import { resolveLanguage } from '@shared/i18nResolve'
 import { ELYBY_REGISTER_URL } from '@shared/types'
 import { resolveServerDisplayName } from '@shared/serverDisplayName'
+import {
+  OFFLINE_CONFIRM_DELAY_MS,
+  shouldConfirmOffline
+} from '@shared/serverStatusHysteresis'
 import { getCurrentLanguage, setLanguage, t } from './i18n'
 import logo from './assets/logo.png'
 import { getRandomBackgroundUrl } from './lib/backgroundMedia'
@@ -178,38 +182,102 @@ export function App(): React.JSX.Element {
   const configRef = useRef(config)
   configRef.current = config
 
+  const statusesRef = useRef(statuses)
+  statusesRef.current = statuses
+
   useEffect(() => {
     if (!servers.length) return
     let cancelled = false
+    const offlineConfirmTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+    function clearOfflineConfirm(serverId: string): void {
+      const timer = offlineConfirmTimers.get(serverId)
+      if (timer) {
+        clearTimeout(timer)
+        offlineConfirmTimers.delete(serverId)
+      }
+    }
+
+    function applyStatusEntries(entries: ReadonlyArray<readonly [string, ServerOnlineStatus]>): void {
+      setStatuses((prev) => {
+        const next = { ...prev }
+        for (const [serverId, status] of entries) {
+          next[serverId] = status
+        }
+        return next
+      })
+
+      void (async () => {
+        const current = configRef.current
+        if (!current) return
+
+        const cachedServerNames = { ...current.cachedServerNames }
+        let changed = false
+        for (const [serverId, status] of entries) {
+          const liveName = status.online ? status.description?.trim() : ''
+          if (liveName && cachedServerNames[serverId] !== liveName) {
+            cachedServerNames[serverId] = liveName
+            changed = true
+          }
+        }
+
+        if (changed) {
+          const updated = await window.awesomeAPI.updateConfig({ cachedServerNames })
+          if (!cancelled) setConfig(updated)
+        }
+      })()
+    }
+
+    function scheduleOfflineConfirm(serverId: string, host: string, port: number): void {
+      if (offlineConfirmTimers.has(serverId)) return
+
+      offlineConfirmTimers.set(
+        serverId,
+        setTimeout(() => {
+          offlineConfirmTimers.delete(serverId)
+          void (async () => {
+            const status = await window.awesomeAPI.getServerStatus(host, port)
+            if (cancelled) return
+            if (status.online) {
+              applyStatusEntries([[serverId, status]])
+              return
+            }
+            // Only flip to offline if UI still shows online (second offline probe).
+            if (statusesRef.current[serverId]?.online) {
+              applyStatusEntries([[serverId, status]])
+            }
+          })()
+        }, OFFLINE_CONFIRM_DELAY_MS)
+      )
+    }
 
     async function refreshStatuses(): Promise<void> {
-      const entries = await Promise.all(
+      const probes = await Promise.all(
         servers.map(async (server) => {
           const status = await window.awesomeAPI.getServerStatus(server.address, server.port)
-          return [server.id, status] as const
+          return { server, status } as const
         })
       )
       if (cancelled) return
 
-      setStatuses(Object.fromEntries(entries))
-
-      const current = configRef.current
-      if (!current) return
-
-      const cachedServerNames = { ...current.cachedServerNames }
-      let changed = false
-      for (const [serverId, status] of entries) {
-        const liveName = status.online ? status.description?.trim() : ''
-        if (liveName && cachedServerNames[serverId] !== liveName) {
-          cachedServerNames[serverId] = liveName
-          changed = true
+      const applyNow: Array<readonly [string, ServerOnlineStatus]> = []
+      for (const { server, status } of probes) {
+        if (status.online) {
+          clearOfflineConfirm(server.id)
+          applyNow.push([server.id, status])
+          continue
         }
+
+        if (shouldConfirmOffline(statusesRef.current[server.id]?.online, status.online)) {
+          scheduleOfflineConfirm(server.id, server.address, server.port)
+          continue
+        }
+
+        clearOfflineConfirm(server.id)
+        applyNow.push([server.id, status])
       }
 
-      if (changed) {
-        const updated = await window.awesomeAPI.updateConfig({ cachedServerNames })
-        if (!cancelled) setConfig(updated)
-      }
+      if (applyNow.length) applyStatusEntries(applyNow)
     }
 
     void refreshStatuses()
@@ -217,6 +285,8 @@ export function App(): React.JSX.Element {
     return () => {
       cancelled = true
       clearInterval(timer)
+      for (const pending of offlineConfirmTimers.values()) clearTimeout(pending)
+      offlineConfirmTimers.clear()
     }
   }, [servers])
 

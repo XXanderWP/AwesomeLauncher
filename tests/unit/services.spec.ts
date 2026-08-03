@@ -111,7 +111,29 @@ describe('ConfigService', () => {
 })
 
 describe('serverStatus', () => {
-  it('maps online payload', async () => {
+  const originalFetch = global.fetch
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    jest.clearAllMocks()
+  })
+
+  function mockOnlinePlayersOk(online = 3, max = 50): void {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ online, max, players: [] })
+    })) as unknown as typeof fetch
+  }
+
+  function mockOnlinePlayersFail(message = 'Request timed out'): void {
+    global.fetch = jest.fn(async () => {
+      throw new Error(message)
+    }) as unknown as typeof fetch
+  }
+
+  it('maps online payload from minecraft ping', async () => {
+    mockOnlinePlayersFail()
     const status = await fetchServerStatus('play.awesome-craft.ru', 25565)
     expect(status.online).toBe(true)
     expect(status.playersOnline).toBe(12)
@@ -121,13 +143,55 @@ describe('serverStatus', () => {
     expect(status.latencyMs).toBeGreaterThanOrEqual(0)
   })
 
-  it('maps offline errors', async () => {
+  it('stays online when ping fails but /online succeeds', async () => {
     const { getServerStatus } = require('helios-core/mojang')
     getServerStatus.mockRejectedValueOnce(new Error('timeout'))
+    mockOnlinePlayersOk(7, 40)
+
+    const status = await fetchServerStatus('play.awesome-craft.ru', 25565)
+    expect(status.online).toBe(true)
+    expect(status.playersOnline).toBe(7)
+    expect(status.playersMax).toBe(40)
+    expect(status.description).toBeNull()
+  })
+
+  it('prefers /online player counts when both succeed', async () => {
+    mockOnlinePlayersOk(7, 40)
+    const status = await fetchServerStatus('play.awesome-craft.ru', 25565)
+    expect(status.online).toBe(true)
+    expect(status.playersOnline).toBe(7)
+    expect(status.playersMax).toBe(40)
+    expect(status.description).toBe('PWS Server')
+  })
+
+  it('maps offline only when ping and /online both fail', async () => {
+    const { getServerStatus } = require('helios-core/mojang')
+    getServerStatus.mockRejectedValueOnce(new Error('timeout'))
+    mockOnlinePlayersFail('connection refused')
+
     const status = await fetchServerStatus('offline.example', 25565)
     expect(status.online).toBe(false)
     expect(status.description).toBeNull()
     expect(status.error).toContain('timeout')
+    expect(status.error).toContain('connection refused')
+  })
+})
+
+describe('serverStatusHysteresis', () => {
+  const {
+    shouldConfirmOffline,
+    OFFLINE_CONFIRM_DELAY_MS
+  } = require('../../src/shared/serverStatusHysteresis')
+
+  it('exports a 5s confirm delay', () => {
+    expect(OFFLINE_CONFIRM_DELAY_MS).toBe(5000)
+  })
+
+  it('requires confirm only for online → offline', () => {
+    expect(shouldConfirmOffline(true, false)).toBe(true)
+    expect(shouldConfirmOffline(true, true)).toBe(false)
+    expect(shouldConfirmOffline(false, false)).toBe(false)
+    expect(shouldConfirmOffline(undefined, false)).toBe(false)
   })
 })
 

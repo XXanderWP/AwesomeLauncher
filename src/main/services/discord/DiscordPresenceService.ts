@@ -4,7 +4,7 @@ import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
 import type { GameService } from '../game/GameService'
 import { fetchOnlinePlayers, formatPlaytime } from '../server-status/onlinePlayers'
-import { fetchServerStatus } from '../server-status/serverStatus'
+import { fetchMinecraftPingStatus } from '../server-status/serverStatus'
 import { resolveLanguage } from '../../../shared/i18nResolve'
 import { buildDiscordJoinButtonUrl } from '../../../shared/protocol'
 import { isJoinBridgeAvailable } from './joinBridge'
@@ -212,7 +212,7 @@ export class DiscordPresenceService {
       }
 
       if (playersOnline === null) {
-        const status = await fetchServerStatus(summary.address, summary.port)
+        const status = await fetchMinecraftPingStatus(summary.address, summary.port)
         if (status.online) {
           playersOnline = status.playersOnline
         }
