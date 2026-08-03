@@ -947,6 +947,79 @@ button.warn-box.warning:focus-visible {
   overflow: hidden;
 }
 
+.modal-map {
+  width: min(960px, 100%);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: min(92vh, 920px);
+}
+
+.map-meta {
+  margin: 0 0 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.map-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 8px;
+}
+
+.map-hud-top,
+.map-hud-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  font-size: 12px;
+  min-height: 18px;
+}
+
+.map-caption {
+  text-align: right;
+  color: var(--text);
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-viewer {
+  flex: 1;
+  min-height: 360px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #121216;
+  position: relative;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.map-viewer:active {
+  cursor: grabbing;
+}
+
+.map-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.map-image {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  border-radius: 3px;
+}
+
 .online-players-count {
   margin: 4px 0 12px;
 }

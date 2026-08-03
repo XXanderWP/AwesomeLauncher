@@ -231,6 +231,8 @@ export const IPC = {
   INSTALL_LAUNCH: 'install:launch',
   INSTANCE_OPEN: 'instance:open',
   INSTANCE_DELETE: 'instance:delete',
+  XAERO_MAP_HAS: 'xaero-map:has',
+  XAERO_MAP_RENDER: 'xaero-map:render',
   MODS_LIST: 'mods:list',
   MODS_SET_ENABLED: 'mods:set-enabled',
   MODS_DELETE: 'mods:delete',

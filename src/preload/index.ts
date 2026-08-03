@@ -79,6 +79,42 @@ const api = {
     ipcRenderer.invoke(IPC.INSTANCE_OPEN, serverId),
   deleteInstance: (serverId: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.INSTANCE_DELETE, serverId),
+  hasXaeroMap: (
+    serverId: string,
+    host: string
+  ): Promise<{ available: boolean; host: string; mapDir: string | null }> =>
+    ipcRenderer.invoke(IPC.XAERO_MAP_HAS, { serverId, host }),
+  renderXaeroMap: (
+    serverId: string,
+    host: string
+  ): Promise<{
+    available: boolean
+    host: string
+    dataUrl: string | null
+    width: number
+    height: number
+    regionCount: number
+    originBlockX: number
+    originBlockZ: number
+    blocksPerPixel: number
+    waypoints: Array<{
+      name: string
+      initials: string
+      x: number
+      y: number
+      z: number
+      color: string
+      kind: 'normal' | 'death'
+    }>
+    logoutPosition: {
+      x: number
+      y: number
+      z: number
+      source: string
+      label: string
+    } | null
+    error?: string
+  }> => ipcRenderer.invoke(IPC.XAERO_MAP_RENDER, { serverId, host }),
 
   listMods: (serverId: string): Promise<ServerModsPayload> =>
     ipcRenderer.invoke(IPC.MODS_LIST, serverId),

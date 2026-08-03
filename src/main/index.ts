@@ -7,6 +7,7 @@ import { ConfigService } from './services/config/ConfigService'
 import { DistroService } from './services/distro/DistroService'
 import { InstallService } from './services/download/InstallService'
 import { ModsService } from './services/mods/ModsService'
+import { XaeroMapService } from './services/xaero/XaeroMapService'
 import { GameService } from './services/game/GameService'
 import { UpdaterService } from './services/updater/UpdaterService'
 import { DiscordPresenceService } from './services/discord/DiscordPresenceService'
@@ -72,6 +73,7 @@ let configService: ConfigService
 let distroService: DistroService
 let installService: InstallService
 let modsService: ModsService
+let xaeroMapService: XaeroMapService
 let gameService: GameService
 let updaterService: UpdaterService
 let discordPresence: DiscordPresenceService
@@ -352,6 +354,13 @@ function registerIpc(): void {
     return true
   })
 
+  ipcMain.handle(IPC.XAERO_MAP_HAS, async (_e, payload: { serverId: string; host: string }) => {
+    return xaeroMapService.hasMap(payload.serverId, payload.host)
+  })
+  ipcMain.handle(IPC.XAERO_MAP_RENDER, async (_e, payload: { serverId: string; host: string }) => {
+    return xaeroMapService.renderMap(payload.serverId, payload.host)
+  })
+
   ipcMain.handle(IPC.MODS_LIST, async (_e, serverId: string) => {
     return modsService.listMods(serverId)
   })
@@ -474,6 +483,7 @@ app.whenReady().then(async () => {
   distroService = new DistroService(configService)
   installService = new InstallService(configService, distroService)
   modsService = new ModsService(configService, distroService)
+  xaeroMapService = new XaeroMapService(() => configService.getDataDirectory())
   gameService = new GameService(configService, distroService, installService)
   updaterService = new UpdaterService(configService)
   discordPresence = new DiscordPresenceService(configService, distroService, gameService)

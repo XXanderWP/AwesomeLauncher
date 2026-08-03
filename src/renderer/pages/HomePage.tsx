@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type {
   AppConfig,
   DistroServerSummary,
@@ -13,6 +13,7 @@ import { t } from '../i18n'
 import { InstanceJavaModal } from '../components/InstanceJavaModal'
 import { InstanceModsModal } from '../components/InstanceModsModal'
 import { InstanceOnlineModal } from '../components/InstanceOnlineModal'
+import { InstanceMapModal } from '../components/InstanceMapModal'
 import { ElybyAccountCard } from '../components/ElybyAccountCard'
 
 interface Props {
@@ -62,9 +63,33 @@ export function HomePage({
   const busy = progress.phase !== 'idle' && progress.phase !== 'launch'
   const [javaServerId, setJavaServerId] = useState<string | null>(null)
   const [onlineServerId, setOnlineServerId] = useState<string | null>(null)
+  const [mapServerId, setMapServerId] = useState<string | null>(null)
+  const [mapAvailableByServer, setMapAvailableByServer] = useState<Record<string, boolean>>({})
   const javaServer = servers.find((s) => s.id === javaServerId) || null
   const modsServer = servers.find((s) => s.id === modsServerId) || null
   const onlineServer = servers.find((s) => s.id === onlineServerId) || null
+  const mapServer = servers.find((s) => s.id === mapServerId) || null
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const next: Record<string, boolean> = {}
+      await Promise.all(
+        servers.map(async (server) => {
+          try {
+            const result = await window.awesomeAPI.hasXaeroMap(server.id, server.address)
+            next[server.id] = result.available
+          } catch {
+            next[server.id] = false
+          }
+        })
+      )
+      if (!cancelled) setMapAvailableByServer(next)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [servers])
 
   async function openFolder(serverId: string): Promise<void> {
     await window.awesomeAPI.openInstanceFolder(serverId)
@@ -146,6 +171,17 @@ export function HomePage({
                     >
                       {t('home.play')}
                     </button>
+                    {mapAvailableByServer[server.id] ? (
+                      <button
+                        className="btn btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMapServerId(server.id)
+                        }}
+                      >
+                        {t('instance.map')}
+                      </button>
+                    ) : null}
                     <button
                       className="btn btn-sm"
                       disabled={busy || gameState.running || !selected}
@@ -283,6 +319,22 @@ export function HomePage({
             : ''
         }
         onClose={() => setOnlineServerId(null)}
+      />
+
+      <InstanceMapModal
+        open={Boolean(mapServer)}
+        serverId={mapServer?.id || ''}
+        host={mapServer?.address || ''}
+        serverName={
+          mapServer
+            ? resolveServerDisplayName(
+                mapServer.name,
+                statuses[mapServer.id]?.description,
+                config.cachedServerNames[mapServer.id]
+              )
+            : ''
+        }
+        onClose={() => setMapServerId(null)}
       />
     </div>
   )
