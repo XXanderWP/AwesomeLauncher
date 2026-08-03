@@ -97,6 +97,34 @@ export interface ServerOnlineStatus {
   error?: string
 }
 
+/** Player entry from awesome_minecraft_status GET /online (port 1313). */
+export interface OnlinePlayer {
+  uuid: string
+  name: string
+  playtimeTicks: number
+  playtimeSeconds: number
+  playtimeFormatted: string
+}
+
+export interface OnlinePlayersResult {
+  ok: boolean
+  online: number
+  max: number
+  players: OnlinePlayer[]
+  error?: string
+}
+
+/** Resolved Ely.by public profile for an online player (nick and/or UUID lookup). */
+export interface ElybyPublicProfile {
+  found: boolean
+  username: string | null
+  uuid: string | null
+  /** Numeric Ely.by site account id for https://ely.by/u{elyId}. */
+  elyId: number | null
+  /** https://ely.by/u{elyId} when the numeric site id is known. */
+  profileUrl: string | null
+}
+
 export interface ProgressEvent {
   phase: 'validate' | 'download' | 'java' | 'launch' | 'idle'
   percent: number
@@ -194,6 +222,7 @@ export const IPC = {
   DISTRO_GET: 'distro:get',
   DISTRO_REFRESH: 'distro:refresh',
   SERVER_STATUS: 'server:status',
+  SERVER_ONLINE_PLAYERS: 'server:online-players',
   INSTALL_VERIFY: 'install:verify',
   INSTALL_LAUNCH: 'install:launch',
   INSTANCE_OPEN: 'instance:open',
@@ -209,6 +238,7 @@ export const IPC = {
   GAME_CLEAR_LOGS: 'game:clear-logs',
   GAME_EXPORT_LOGS: 'game:export-logs',
   ELYBY_FETCH_SKIN: 'elyby:fetch-skin',
+  ELYBY_RESOLVE_PROFILE: 'elyby:resolve-profile',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_TOGGLE_MAXIMIZE: 'window:toggle-maximize',
   WINDOW_CLOSE: 'window:close',

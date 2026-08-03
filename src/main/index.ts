@@ -22,7 +22,9 @@ import {
   ensurePlayableSession
 } from './services/auth/elybyDeviceCode'
 import { fetchElybySkinDataUrl } from './services/auth/elybySkinFetch'
+import { resolveElybyPublicProfile } from './services/auth/elybyPublicProfile'
 import { fetchServerStatus } from './services/server-status/serverStatus'
+import { fetchOnlinePlayers } from './services/server-status/onlinePlayers'
 import {
   getLinuxShortcutStatus,
   installLinuxDesktopShortcut,
@@ -218,12 +220,29 @@ function registerIpc(): void {
     return fetchElybySkinDataUrl(username.trim())
   })
 
+  ipcMain.handle(
+    IPC.ELYBY_RESOLVE_PROFILE,
+    async (_e, payload: { username?: string; uuid?: string }) => {
+      return resolveElybyPublicProfile({
+        username: typeof payload?.username === 'string' ? payload.username : undefined,
+        uuid: typeof payload?.uuid === 'string' ? payload.uuid : undefined
+      })
+    }
+  )
+
   ipcMain.handle(IPC.DISTRO_GET, async () => distroService.get())
   ipcMain.handle(IPC.DISTRO_REFRESH, async () => distroService.refresh())
 
   ipcMain.handle(IPC.SERVER_STATUS, async (_e, payload: { host: string; port?: number }) => {
     return fetchServerStatus(payload.host, payload.port ?? 25565)
   })
+
+  ipcMain.handle(
+    IPC.SERVER_ONLINE_PLAYERS,
+    async (_e, payload: { host: string; statusPort?: number }) => {
+      return fetchOnlinePlayers(payload.host, payload.statusPort)
+    }
+  )
 
   ipcMain.handle(IPC.INSTALL_VERIFY, async (_e, serverId: string) => {
     return installService.verifyAndRepair(serverId)

@@ -7,6 +7,8 @@ import type {
   GameProcessState,
   ModInfo,
   ModPreview,
+  ElybyPublicProfile,
+  OnlinePlayersResult,
   ProgressEvent,
   ServerModsPayload,
   ServerOnlineStatus,
@@ -64,6 +66,8 @@ const api = {
 
   getServerStatus: (host: string, port?: number): Promise<ServerOnlineStatus> =>
     ipcRenderer.invoke(IPC.SERVER_STATUS, { host, port }),
+  getOnlinePlayers: (host: string, statusPort?: number): Promise<OnlinePlayersResult> =>
+    ipcRenderer.invoke(IPC.SERVER_ONLINE_PLAYERS, { host, statusPort }),
 
   verifyInstall: (
     serverId: string
@@ -96,6 +100,10 @@ const api = {
     ipcRenderer.invoke(IPC.GAME_EXPORT_LOGS),
   fetchElybySkin: (username: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.ELYBY_FETCH_SKIN, username),
+  resolveElybyProfile: (payload: {
+    username?: string
+    uuid?: string
+  }): Promise<ElybyPublicProfile> => ipcRenderer.invoke(IPC.ELYBY_RESOLVE_PROFILE, payload),
 
   getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_STATUS),
   checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),

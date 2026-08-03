@@ -846,6 +846,104 @@ button.warn-box.warning:focus-visible {
   overflow: hidden;
 }
 
+.modal-online {
+  width: min(560px, 100%);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.online-players-count {
+  margin: 4px 0 12px;
+}
+
+.online-players-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.online-player-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(7, 9, 14, 0.4);
+}
+
+.online-player-identity {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  text-align: left;
+}
+
+button.online-player-identity-link {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+button.online-player-identity-link:hover .online-player-meta strong,
+button.online-player-identity-link:focus-visible .online-player-meta strong {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+button.online-player-identity-link:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.online-player-avatar.ely-avatar,
+.online-player-avatar.ely-avatar-fallback {
+  width: 40px;
+  height: 40px;
+  font-size: 0.95rem;
+  box-shadow: none;
+}
+
+.online-player-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.online-player-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.online-player-uuid {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.online-player-playtime {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
 .modal-mods > .hint,
 .modal-mods > .warn-box {
   flex-shrink: 0;

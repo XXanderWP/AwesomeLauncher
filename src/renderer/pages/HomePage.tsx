@@ -12,6 +12,7 @@ import { resolveServerDisplayName } from '@shared/serverDisplayName'
 import { t } from '../i18n'
 import { InstanceJavaModal } from '../components/InstanceJavaModal'
 import { InstanceModsModal } from '../components/InstanceModsModal'
+import { InstanceOnlineModal } from '../components/InstanceOnlineModal'
 import { ElybyAccountCard } from '../components/ElybyAccountCard'
 
 interface Props {
@@ -60,8 +61,10 @@ export function HomePage({
   const selectedId = config.selectedServerId || servers[0]?.id
   const busy = progress.phase !== 'idle' && progress.phase !== 'launch'
   const [javaServerId, setJavaServerId] = useState<string | null>(null)
+  const [onlineServerId, setOnlineServerId] = useState<string | null>(null)
   const javaServer = servers.find((s) => s.id === javaServerId) || null
   const modsServer = servers.find((s) => s.id === modsServerId) || null
+  const onlineServer = servers.find((s) => s.id === onlineServerId) || null
 
   async function openFolder(serverId: string): Promise<void> {
     await window.awesomeAPI.openInstanceFolder(serverId)
@@ -156,6 +159,15 @@ export function HomePage({
                       }}
                     >
                       {t('home.verify')}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOnlineServerId(server.id)
+                      }}
+                    >
+                      {t('instance.online')}
                     </button>
                     <button
                       className="btn btn-sm"
@@ -260,6 +272,21 @@ export function HomePage({
         gameRunning={gameState.running}
         reloadToken={modsReloadToken}
         onClose={() => onModsServerIdChange(null)}
+      />
+
+      <InstanceOnlineModal
+        open={Boolean(onlineServer)}
+        host={onlineServer?.address || ''}
+        serverName={
+          onlineServer
+            ? resolveServerDisplayName(
+                onlineServer.name,
+                statuses[onlineServer.id]?.description,
+                config.cachedServerNames[onlineServer.id]
+              )
+            : ''
+        }
+        onClose={() => setOnlineServerId(null)}
       />
     </div>
   )

@@ -3,6 +3,15 @@ import os from 'os'
 import path from 'path'
 import { ConfigService, deepMerge } from '../../src/main/services/config/ConfigService'
 import { fetchServerStatus } from '../../src/main/services/server-status/serverStatus'
+import {
+  fetchOnlinePlayers,
+  formatPlaytime
+} from '../../src/main/services/server-status/onlinePlayers'
+import {
+  parseElyUserIdFromHref,
+  parseElyUserIdFromProfileHtml,
+  resolveElybyPublicProfile
+} from '../../src/main/services/auth/elybyPublicProfile'
 import { getSupportedLanguages } from '../../src/shared/i18nResolve'
 import {
   commonDirectory,
@@ -118,6 +127,174 @@ describe('serverStatus', () => {
     expect(status.online).toBe(false)
     expect(status.description).toBeNull()
     expect(status.error).toContain('timeout')
+  })
+})
+
+describe('onlinePlayers', () => {
+  const originalFetch = global.fetch
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  it('formats playtime as Dd Hh Mm Ss', () => {
+    expect(formatPlaytime(3600)).toBe('0d 1h 0m 0s')
+    expect(formatPlaytime(90061)).toBe('1d 1h 1m 1s')
+  })
+
+  it('maps /online payload', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        online: 2,
+        max: 20,
+        players: [
+          {
+            uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5',
+            name: 'Notch',
+            playtime_ticks: 72000,
+            playtime_seconds: 3600
+          }
+        ]
+      })
+    })) as unknown as typeof fetch
+
+    const result = await fetchOnlinePlayers('127.0.0.1')
+    expect(result.ok).toBe(true)
+    expect(result.online).toBe(2)
+    expect(result.max).toBe(20)
+    expect(result.players).toHaveLength(1)
+    expect(result.players[0]).toMatchObject({
+      uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5',
+      name: 'Notch',
+      playtimeSeconds: 3600,
+      playtimeFormatted: '0d 1h 0m 0s'
+    })
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:1313/online',
+      expect.objectContaining({ method: 'GET' })
+    )
+  })
+
+  it('maps HTTP errors', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        error: 'server_unavailable',
+        message: 'Minecraft server is not ready'
+      })
+    })) as unknown as typeof fetch
+
+    const result = await fetchOnlinePlayers('play.awesome-craft.ru')
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('not ready')
+    expect(result.players).toEqual([])
+  })
+})
+
+describe('elybyPublicProfile', () => {
+  const originalFetch = global.fetch
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  it('parses numeric user id from href and profile html', () => {
+    expect(parseElyUserIdFromHref('/u3575339')).toBe(3575339)
+    expect(parseElyUserIdFromHref('https://ely.by/u1')).toBe(1)
+    expect(parseElyUserIdFromHref('/erickskrauch')).toBeUndefined()
+    expect(
+      parseElyUserIdFromProfileHtml('<div id="user-profile" al-init="wallId = 1"></div>')
+    ).toBe(1)
+  })
+
+  it('returns /u{id} when search href includes numeric id', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/users/profiles/minecraft/XanderWP')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({ id: 'a366830fc6d44b3ab6b07ccc3325e22f', name: 'XanderWP' })
+        }
+      }
+      if (url.includes('/search/')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify([{ nickname: 'XanderWP', href: '/u3575339', skin_url: null }])
+        }
+      }
+      return { ok: false, status: 404, text: async () => '' }
+    }) as unknown as typeof fetch
+
+    const result = await resolveElybyPublicProfile({ username: 'XanderWP' })
+    expect(result.found).toBe(true)
+    expect(result.elyId).toBe(3575339)
+    expect(result.profileUrl).toBe('https://ely.by/u3575339')
+  })
+
+  it('resolves vanity search href via wallId in profile html', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/user/profiles/') && url.endsWith('/names')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify([{ name: 'ErickSkrauch' }])
+        }
+      }
+      if (url.includes('/search/')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify([{ nickname: 'ErickSkrauch', href: '/erickskrauch', skin_url: null }])
+        }
+      }
+      if (url.includes('ely.by/erickskrauch')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '<div id="user-profile" al-init="wallId = 1"></div>'
+        }
+      }
+      return { ok: false, status: 404, text: async () => '' }
+    }) as unknown as typeof fetch
+
+    const result = await resolveElybyPublicProfile({
+      uuid: 'ffc8fdc9-5824-509e-8a57-c99b940fb996',
+      username: 'ErickSkrauch'
+    })
+    expect(result.found).toBe(true)
+    expect(result.elyId).toBe(1)
+    expect(result.profileUrl).toBe('https://ely.by/u1')
+  })
+
+  it('keeps profile non-clickable when USER_ID cannot be resolved', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/users/profiles/minecraft/')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ id: 'abc', name: 'NoPublicId' })
+        }
+      }
+      if (url.includes('/search/')) {
+        return { ok: true, status: 200, text: async () => JSON.stringify([]) }
+      }
+      return { ok: false, status: 404, text: async () => '' }
+    }) as unknown as typeof fetch
+
+    const result = await resolveElybyPublicProfile({ username: 'NoPublicId' })
+    expect(result.found).toBe(true)
+    expect(result.elyId).toBeNull()
+    expect(result.profileUrl).toBeNull()
   })
 })
 

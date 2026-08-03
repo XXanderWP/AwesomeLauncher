@@ -32,8 +32,11 @@ import { validateRamLimits, clampRamMb } from '../../src/shared/ramValidation'
 import {
   elybySkinUrl,
   elybyTexturesUrl,
+  elybyUsernameProfileUrl,
+  elybyNumericProfileUrl,
   upgradeElybyAssetUrl,
   elybyProfileUrl,
+  undashUuid,
   parseElyAccountId,
   shortUuid
 } from '../../src/shared/elybyProfile'
@@ -198,6 +201,8 @@ describe('elybyProfile helpers', () => {
   it('builds skin and profile urls', () => {
     expect(elybySkinUrl('Steve', 1)).toContain('/skins/Steve.png')
     expect(elybyTexturesUrl('Steve')).toBe('https://skinsystem.ely.by/textures/Steve')
+    expect(elybyUsernameProfileUrl('ErickSkrauch')).toBe('https://ely.by/ErickSkrauch')
+    expect(elybyNumericProfileUrl(3575339)).toBe('https://ely.by/u3575339')
     expect(upgradeElybyAssetUrl('http://ely.by/storage/skins/abc.png')).toBe(
       'https://ely.by/storage/skins/abc.png'
     )
@@ -206,6 +211,12 @@ describe('elybyProfile helpers', () => {
     )
     expect(elybyProfileUrl({ username: 'XanderWP', displayName: 'XanderWP' })).toBe(
       'https://account.ely.by/'
+    )
+  })
+
+  it('builds undashed uuids', () => {
+    expect(undashUuid('ffc8fdc9-5824-509e-8a57-c99b940fb996')).toBe(
+      'ffc8fdc95824509e8a57c99b940fb996'
     )
   })
 
