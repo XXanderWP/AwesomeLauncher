@@ -104,7 +104,11 @@ const translations = {
     'instance.delete.confirm': 'Delete local files for "{0}"? This cannot be undone.',
     'instance.java': 'Java',
     'instance.java.title': 'Instance Java settings',
-    'instance.java.hint': 'These values override the shared Java defaults for this server only.',
+    'instance.java.hint':
+      'Uncheck “Use global settings” to override the shared Java defaults for this server only.',
+    'instance.java.useGlobal': 'Use global settings',
+    'instance.java.useGlobal.hint':
+      'When enabled, this instance uses the shared Java settings from the Settings page.',
     'instance.java.reset': 'Use shared defaults',
     'instance.java.overridden': 'Custom Java',
     'instance.java.packHint': 'Pack recommendation: {0}–{1} MB',
@@ -284,7 +288,10 @@ const translations = {
     'instance.java': 'Java',
     'instance.java.title': 'Java для инстанса',
     'instance.java.hint':
-      'Эти значения переопределяют общие настройки Java только для этого сервера.',
+      'Снимите «Использовать глобальные настройки», чтобы задать Java только для этого сервера.',
+    'instance.java.useGlobal': 'Использовать глобальные настройки',
+    'instance.java.useGlobal.hint':
+      'Если включено, инстанс берёт общие настройки Java из раздела «Настройки».',
     'instance.java.reset': 'Использовать общие',
     'instance.java.overridden': 'Своя Java',
     'instance.java.packHint': 'Рекомендация сборки: {0}–{1} МБ',
@@ -464,7 +471,10 @@ const translations = {
     'instance.java': 'Java',
     'instance.java.title': 'Java для інстансу',
     'instance.java.hint':
-      'Ці значення перевизначають спільні налаштування Java лише для цього сервера.',
+      'Зніміть «Використовувати глобальні налаштування», щоб задати Java лише для цього сервера.',
+    'instance.java.useGlobal': 'Використовувати глобальні налаштування',
+    'instance.java.useGlobal.hint':
+      'Якщо увімкнено, інстанс бере спільні налаштування Java з розділу «Налаштування».',
     'instance.java.reset': 'Використовувати спільні',
     'instance.java.overridden': 'Своя Java',
     'instance.java.packHint': 'Рекомендація збірки: {0}–{1} МБ',

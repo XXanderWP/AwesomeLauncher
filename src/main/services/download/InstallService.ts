@@ -8,7 +8,7 @@ import {
   extractJdk,
   javaExecFromRoot
 } from 'helios-core/java'
-import type { ProgressEvent } from '../../../shared/types'
+import type { JavaServerSettings, ProgressEvent } from '../../../shared/types'
 import { IPC } from '../../../shared/types'
 import { commonDirectory, instanceDirectory, instancesDirectory } from '../../utils/paths'
 import type { ConfigService } from '../config/ConfigService'
@@ -59,7 +59,7 @@ export class InstallService {
     const discovered = await discoverBestJvmInstallation(dataDir, semverRange)
     if (discovered?.path) {
       const exec = javaExecFromRoot(discovered.path)
-      await this.config.setJavaSettings(serverId, { ...javaSettings, javaPath: exec })
+      await this.persistJavaPath(serverId, javaSettings, exec)
       return exec
     }
 
@@ -95,9 +95,22 @@ export class InstallService {
     if (!exec) {
       throw new Error('Failed to extract JDK')
     }
-    await this.config.setJavaSettings(serverId, { ...javaSettings, javaPath: exec })
+    await this.persistJavaPath(serverId, javaSettings, exec)
     this.emitProgress({ phase: 'java', percent: 100, message: 'Java ready' })
     return exec
+  }
+
+  /** Save discovered Java into the override when custom, otherwise into shared defaults. */
+  private async persistJavaPath(
+    serverId: string,
+    javaSettings: JavaServerSettings,
+    exec: string
+  ): Promise<void> {
+    if (this.config.hasJavaOverride(serverId)) {
+      await this.config.setJavaSettings(serverId, { ...javaSettings, javaPath: exec })
+      return
+    }
+    await this.config.setJavaDefaults({ ...this.config.getJavaDefaults(), javaPath: exec })
   }
 
   async verifyAndRepair(serverId: string): Promise<{
