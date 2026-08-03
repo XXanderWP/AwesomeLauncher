@@ -5,7 +5,8 @@ artifactName: AwesomeLauncher.${ext}
 copyright: Copyright © 2026 AwesomeCraft
 
 asar: true
-compression: maximum
+# Prefer faster unpack over smallest download — AppImage mount + asar I/O benefit.
+compression: normal
 
 files:
   - '!**/.vscode/*'
@@ -90,6 +91,10 @@ linux:
   description: Custom launcher for AwesomeCraft Minecraft servers.
   icon: build/icon.png
   maintainer: AwesomeCraft
+
+# zstd mounts much faster than xz/maximum; keeps a single portable AppImage for all distros.
+appImage:
+  compression: zstd
 
 directories:
   buildResources: build

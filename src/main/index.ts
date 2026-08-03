@@ -63,7 +63,8 @@ function createWindow(): void {
     height: 720,
     minWidth: 960,
     minHeight: 640,
-    show: false,
+    // Show immediately with backgroundColor so AppImage cold-start is not a blank desktop.
+    show: true,
     frame: false,
     backgroundColor: '#0f1218',
     title: 'AwesomeCraft Launcher',
@@ -77,10 +78,6 @@ function createWindow(): void {
   })
 
   mainWindow.setMenuBarVisibility(false)
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-  })
 
   const sendMaximized = (): void => {
     mainWindow?.webContents.send(IPC.EVENT_WINDOW_MAXIMIZED, mainWindow.isMaximized())
@@ -389,14 +386,6 @@ app.whenReady().then(async () => {
   configService = new ConfigService()
   await configService.load()
 
-  const selected = configService.getSelectedAccount()
-  if (selected) {
-    const enriched = await enrichAccountWithElyId(selected)
-    if (enriched.elyId !== selected.elyId) {
-      await configService.setAccount(enriched, true)
-    }
-  }
-
   distroService = new DistroService(configService)
   installService = new InstallService(configService, distroService)
   modsService = new ModsService(configService, distroService)
@@ -406,6 +395,20 @@ app.whenReady().then(async () => {
   registerIpc()
   createWindow()
   updaterService.init()
+
+  // Enrich elyId in the background — never block first paint on network.
+  const selected = configService.getSelectedAccount()
+  if (selected) {
+    void enrichAccountWithElyId(selected)
+      .then(async (enriched) => {
+        if (enriched.elyId !== selected.elyId) {
+          await configService.setAccount(enriched, true)
+        }
+      })
+      .catch(() => {
+        /* offline / expired token — profile link stays on account.ely.by */
+      })
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

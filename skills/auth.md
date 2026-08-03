@@ -46,7 +46,8 @@ Base URL: `https://authserver.ely.by`
 ```
 
 Profile button opens `https://ely.by/u{elyId}` when known; otherwise `https://account.ely.by/`.
-On startup, OAuth sessions without `elyId` are enriched via account-info API.
+On startup, OAuth sessions without `elyId` are enriched via account-info API in the
+background (must not delay BrowserWindow creation).
 
 ## Launch integration
 

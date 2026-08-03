@@ -21,7 +21,7 @@ Runs after successful CI on `main` (workflow_run) or manual dispatch.
 Stable filenames (version lives in the GitHub release tag / URL):
 
 - Windows: `AwesomeLauncher.exe`
-- Linux: `AwesomeLauncher.AppImage`
+- Linux: `AwesomeLauncher.AppImage` (squashfs `zstd` for faster cold start; portable across distros)
 - macOS DMG: `AwesomeLauncher-{arch}.dmg` (manual install)
 - macOS ZIP: `AwesomeLauncher-{arch}.zip` (required by `electron-updater` / Squirrel.Mac when that path is used)
 
