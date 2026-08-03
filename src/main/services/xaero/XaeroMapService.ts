@@ -19,11 +19,7 @@ import {
   type XaeroLogoutPosition,
   type XaeroWaypoint
 } from './xaeroWaypoints'
-import {
-  parseRegionBlockIndex,
-  worldToRegionLocal,
-  type XaeroBlockHit
-} from './xaeroRegionBlocks'
+import { parseRegionBlockIndex, worldToRegionLocal, type XaeroBlockHit } from './xaeroRegionBlocks'
 
 const MAX_PNG_SIDE = 4096
 

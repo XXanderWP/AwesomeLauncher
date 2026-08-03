@@ -73,8 +73,7 @@ export function parseWaypointFile(content: string): XaeroWaypoint[] {
     const type = Number.parseInt(parts[8] ?? '0', 10)
     const set = parts[9] ?? 'gui.xaero_default'
     if (![x, y, z].every((n) => Number.isFinite(n))) continue
-    const kind: 'normal' | 'death' =
-      type === 1 || /death|смерть|☠/i.test(name) ? 'death' : 'normal'
+    const kind: 'normal' | 'death' = type === 1 || /death|смерть|☠/i.test(name) ? 'death' : 'normal'
     out.push({
       name: name.trim() || initials || 'Waypoint',
       initials: initials.trim() || name.trim().slice(0, 1) || '?',

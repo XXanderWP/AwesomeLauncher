@@ -362,10 +362,7 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     IPC.XAERO_MAP_LOOKUP_BLOCK,
-    async (
-      _e,
-      payload: { serverId: string; host: string; blockX: number; blockZ: number }
-    ) => {
+    async (_e, payload: { serverId: string; host: string; blockX: number; blockZ: number }) => {
       return xaeroMapService.lookupBlock(
         payload.serverId,
         payload.host,

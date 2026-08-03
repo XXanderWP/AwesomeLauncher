@@ -11,10 +11,7 @@ import {
   parseWaypointFile,
   resolveLogoutPosition
 } from '../../src/main/services/xaero/xaeroWaypoints'
-import {
-  listXwmc,
-  parseRegionCoords
-} from '../../src/main/services/xaero/XaeroMapService'
+import { listXwmc, parseRegionCoords } from '../../src/main/services/xaero/XaeroMapService'
 import { worldToRegionLocal } from '../../src/main/services/xaero/xaeroRegionBlocks'
 import fs from 'fs-extra'
 import os from 'os'

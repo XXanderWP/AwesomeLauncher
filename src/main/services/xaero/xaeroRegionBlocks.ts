@@ -324,7 +324,7 @@ function readPixel(
     height = (height | (hi << 8)) & 0x0fff
     if (height & 0x0800) height |= 0xf000
     // sign-extend 12→16
-    height = height << 16 >> 16
+    height = (height << 16) >> 16
   }
 
   let blockId = 'minecraft:grass_block'
