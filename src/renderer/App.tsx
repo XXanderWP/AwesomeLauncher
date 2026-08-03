@@ -13,10 +13,7 @@ import type {
 import { resolveLanguage } from '@shared/i18nResolve'
 import { ELYBY_REGISTER_URL } from '@shared/types'
 import { resolveServerDisplayName } from '@shared/serverDisplayName'
-import {
-  OFFLINE_CONFIRM_DELAY_MS,
-  shouldConfirmOffline
-} from '@shared/serverStatusHysteresis'
+import { OFFLINE_CONFIRM_DELAY_MS, shouldConfirmOffline } from '@shared/serverStatusHysteresis'
 import { getCurrentLanguage, setLanguage, t } from './i18n'
 import logo from './assets/logo.png'
 import { getRandomBackgroundUrl } from './lib/backgroundMedia'
@@ -198,7 +195,9 @@ export function App(): React.JSX.Element {
       }
     }
 
-    function applyStatusEntries(entries: ReadonlyArray<readonly [string, ServerOnlineStatus]>): void {
+    function applyStatusEntries(
+      entries: ReadonlyArray<readonly [string, ServerOnlineStatus]>
+    ): void {
       setStatuses((prev) => {
         const next = { ...prev }
         for (const [serverId, status] of entries) {
