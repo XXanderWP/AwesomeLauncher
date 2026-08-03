@@ -127,10 +127,11 @@ export function SettingsPage({
 
   return (
     <div className="panel settings-grid">
-      <h1>{t('settings.title')}</h1>
+      <div className="settings-body">
+        <h1>{t('settings.title')}</h1>
 
-      <section className="field">
-        <h2>{t('settings.general')}</h2>
+        <section className="field">
+          <h2>{t('settings.general')}</h2>
         <label className="field">
           {t('settings.language')}
           <select
@@ -540,8 +541,9 @@ export function SettingsPage({
           </div>
         )}
       </section>
+      </div>
 
-      <div className="actions">
+      <div className="settings-footer actions">
         <button
           className="btn primary"
           type="button"

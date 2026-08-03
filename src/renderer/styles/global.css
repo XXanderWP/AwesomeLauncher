@@ -701,9 +701,37 @@ a {
   border-color: rgba(61, 214, 198, 0.55);
 }
 
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled,
+.ram-slider:disabled,
+.ram-number:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .settings-grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.settings-body {
   display: grid;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.settings-footer {
+  flex-shrink: 0;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .field {
