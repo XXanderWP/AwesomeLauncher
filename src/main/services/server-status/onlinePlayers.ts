@@ -65,10 +65,7 @@ export async function fetchOnlinePlayers(
         online: 0,
         max: 0,
         players: [],
-        error:
-          apiMessage ||
-          apiError ||
-          `HTTP ${response.status}`
+        error: apiMessage || apiError || `HTTP ${response.status}`
       }
     }
 

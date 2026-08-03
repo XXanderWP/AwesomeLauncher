@@ -129,7 +129,9 @@ async function lookupElyUserIdByUsername(username: string): Promise<number | und
           if (fromHref) return fromHref
 
           const page = await fetchText(
-            href.startsWith('http') ? href : `https://ely.by${href.startsWith('/') ? '' : '/'}${href}`,
+            href.startsWith('http')
+              ? href
+              : `https://ely.by${href.startsWith('/') ? '' : '/'}${href}`,
             'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8'
           )
           if (page.ok && page.text) {

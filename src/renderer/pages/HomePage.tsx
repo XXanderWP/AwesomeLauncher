@@ -84,11 +84,7 @@ export function HomePage({
   return (
     <div className="home-layout">
       {updateStatus?.available && (
-        <button
-          type="button"
-          className="warn-box warning"
-          onClick={onOpenUpdateSettings}
-        >
+        <button type="button" className="warn-box warning" onClick={onOpenUpdateSettings}>
           {updateBannerText}
         </button>
       )}

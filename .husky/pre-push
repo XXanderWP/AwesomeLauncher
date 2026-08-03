@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -e
+
+echo "▶ Running CI checks before push (format, lint, typecheck, test)..."
+npm run check
