@@ -1039,8 +1039,17 @@ button.online-player-meta-link:focus-visible {
 }
 
 .modal-mods > .hint,
-.modal-mods > .warn-box {
+.modal-mods > .warn-box,
+.modal-mods > .mods-search {
   flex-shrink: 0;
+}
+
+.mods-search {
+  margin: 4px 0 0;
+}
+
+.mods-search input {
+  width: 100%;
 }
 
 .modal-header-row {

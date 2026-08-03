@@ -373,19 +373,20 @@ describe('ModsService install', () => {
   const path = require('path')
   const AdmZip = require('adm-zip')
   const { ModsService } = require('../../src/main/services/mods/ModsService')
+  const modMetadata = require('../../src/main/services/mods/modMetadata')
 
-  it('previews and installs a jar into instance mods', async () => {
-    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mods-svc-'))
-    const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mod-src-'))
-    const jarPath = path.join(sourceDir, 'coolmod.jar')
+  function writeFabricJar(
+    jarPath: string,
+    meta: { id: string; name: string; version: string }
+  ): void {
     const zip = new AdmZip()
     zip.addFile(
       'fabric.mod.json',
       Buffer.from(
         JSON.stringify({
-          id: 'coolmod',
-          name: 'Cool Mod',
-          version: '2.0.0',
+          id: meta.id,
+          name: meta.name,
+          version: meta.version,
           description: 'Nice',
           authors: ['Dev'],
           contact: { homepage: 'https://example.com/cool' }
@@ -394,6 +395,13 @@ describe('ModsService install', () => {
       )
     )
     zip.writeZip(jarPath)
+  }
+
+  it('previews and installs a jar into instance mods', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mods-svc-'))
+    const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mod-src-'))
+    const jarPath = path.join(sourceDir, 'coolmod.jar')
+    writeFabricJar(jarPath, { id: 'coolmod', name: 'Cool Mod', version: '2.0.0' })
 
     const service = new ModsService(
       { getDataDirectory: () => dataDir },
@@ -413,6 +421,62 @@ describe('ModsService install', () => {
 
     await fs.remove(dataDir)
     await fs.remove(sourceDir)
+  })
+
+  it('reuses cached listMods payload when files are unchanged', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mods-cache-'))
+    const modsDir = path.join(dataDir, 'instances', 'srv1', 'mods')
+    await fs.ensureDir(modsDir)
+    const jarPath = path.join(modsDir, 'cached.jar')
+    writeFabricJar(jarPath, { id: 'cached', name: 'Cached Mod', version: '1.0.0' })
+
+    const distro = { get: async () => ({ raw: { servers: [] } }) }
+    const service = new ModsService({ getDataDirectory: () => dataDir }, distro)
+
+    const spy = jest.spyOn(modMetadata, 'readModMetadataFromJar')
+    const first = await service.listMods('srv1')
+    expect(spy).toHaveBeenCalled()
+    const readsAfterFirst = spy.mock.calls.length
+    expect(first.userMods).toHaveLength(1)
+    expect(first.userMods[0].name).toBe('Cached Mod')
+
+    const second = await service.listMods('srv1')
+    expect(spy.mock.calls.length).toBe(readsAfterFirst)
+    expect(second).toBe(first)
+
+    await service.deleteUserMod('srv1', first.userMods[0].filePath)
+    const third = await service.listMods('srv1')
+    expect(third.userMods).toHaveLength(0)
+    expect(third).not.toBe(first)
+
+    spy.mockRestore()
+    await fs.remove(dataDir)
+  })
+
+  it('reuses disk listMods cache after service restart', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mods-disk-'))
+    const modsDir = path.join(dataDir, 'instances', 'srv1', 'mods')
+    await fs.ensureDir(modsDir)
+    writeFabricJar(path.join(modsDir, 'cached.jar'), {
+      id: 'cached',
+      name: 'Cached Mod',
+      version: '1.0.0'
+    })
+
+    const distro = { get: async () => ({ raw: { servers: [] } }) }
+    const firstService = new ModsService({ getDataDirectory: () => dataDir }, distro)
+    const first = await firstService.listMods('srv1')
+    expect(first.userMods).toHaveLength(1)
+
+    const spy = jest.spyOn(modMetadata, 'readModMetadataFromJar')
+    const secondService = new ModsService({ getDataDirectory: () => dataDir }, distro)
+    const second = await secondService.listMods('srv1')
+    expect(spy).not.toHaveBeenCalled()
+    expect(second.userMods[0].name).toBe('Cached Mod')
+    expect(second).toEqual(first)
+
+    spy.mockRestore()
+    await fs.remove(dataDir)
   })
 })
 

@@ -11,6 +11,21 @@ interface Props {
   onClose: () => void
 }
 
+function matchesModQuery(mod: ModInfo, query: string): boolean {
+  if (!query) return true
+  const haystack = [
+    mod.name,
+    mod.fileName,
+    mod.id,
+    mod.version,
+    mod.description ?? '',
+    ...mod.authors
+  ]
+    .join(' ')
+    .toLocaleLowerCase()
+  return haystack.includes(query)
+}
+
 function ModIcon({ mod }: { mod: ModInfo }): React.JSX.Element {
   if (mod.iconDataUrl) {
     return <img className="mod-icon" src={mod.iconDataUrl} alt="" />
@@ -98,6 +113,7 @@ export function InstanceModsModal({
   const [loading, setLoading] = useState(false)
   const [busyPath, setBusyPath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const refresh = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -118,8 +134,15 @@ export function InstanceModsModal({
     } else {
       setPayload(null)
       setError(null)
+      setSearch('')
     }
   }, [open, refresh, reloadToken])
+
+  const query = search.trim().toLocaleLowerCase()
+  const userMods = payload?.userMods || []
+  const commonMods = payload?.commonMods || []
+  const filteredUserMods = userMods.filter((mod) => matchesModQuery(mod, query))
+  const filteredCommonMods = commonMods.filter((mod) => matchesModQuery(mod, query))
 
   if (!open) return null
 
@@ -173,8 +196,43 @@ export function InstanceModsModal({
     }
   }
 
-  const userMods = payload?.userMods || []
-  const commonMods = payload?.commonMods || []
+  function renderUserSection(): React.JSX.Element {
+    if (userMods.length === 0) {
+      return <div className="warn-box warning">{t('instance.mods.userEmpty')}</div>
+    }
+    if (filteredUserMods.length === 0) {
+      return <p className="muted">{t('instance.mods.search.empty')}</p>
+    }
+    return (
+      <div className="mods-list">
+        {filteredUserMods.map((mod) => (
+          <ModRow
+            key={mod.filePath}
+            mod={mod}
+            busy={busyPath === mod.filePath || gameRunning}
+            onToggle={(m, enabled) => void toggle(m, enabled)}
+            onDelete={(m) => void remove(m)}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  function renderCommonSection(): React.JSX.Element {
+    if (commonMods.length === 0) {
+      return <p className="muted">{t('instance.mods.commonEmpty')}</p>
+    }
+    if (filteredCommonMods.length === 0) {
+      return <p className="muted">{t('instance.mods.search.empty')}</p>
+    }
+    return (
+      <div className="mods-list">
+        {filteredCommonMods.map((mod) => (
+          <ModRow key={mod.filePath} mod={mod} busy />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -198,35 +256,26 @@ export function InstanceModsModal({
             <p className="mods-loading-label">{t('instance.mods.loading')}</p>
           </div>
         ) : (
-          <div className="mods-scroll">
-            <h3 className="mods-section-title">{t('instance.mods.user')}</h3>
-            {userMods.length === 0 ? (
-              <div className="warn-box warning">{t('instance.mods.userEmpty')}</div>
-            ) : (
-              <div className="mods-list">
-                {userMods.map((mod) => (
-                  <ModRow
-                    key={mod.filePath}
-                    mod={mod}
-                    busy={busyPath === mod.filePath || gameRunning}
-                    onToggle={(m, enabled) => void toggle(m, enabled)}
-                    onDelete={(m) => void remove(m)}
-                  />
-                ))}
-              </div>
-            )}
+          <>
+            <label className="field mods-search">
+              <input
+                type="search"
+                value={search}
+                placeholder={t('instance.mods.search.placeholder')}
+                aria-label={t('instance.mods.search')}
+                onChange={(e) => setSearch(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <div className="mods-scroll">
+              <h3 className="mods-section-title">{t('instance.mods.user')}</h3>
+              {renderUserSection()}
 
-            <h3 className="mods-section-title">{t('instance.mods.common')}</h3>
-            {commonMods.length === 0 ? (
-              <p className="muted">{t('instance.mods.commonEmpty')}</p>
-            ) : (
-              <div className="mods-list">
-                {commonMods.map((mod) => (
-                  <ModRow key={mod.filePath} mod={mod} busy />
-                ))}
-              </div>
-            )}
-          </div>
+              <h3 className="mods-section-title">{t('instance.mods.common')}</h3>
+              {renderCommonSection()}
+            </div>
+          </>
         )}
       </div>
     </div>
