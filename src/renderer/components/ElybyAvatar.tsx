@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getElybySkinDataUrl } from '../skin/elybySkinCache'
 
 interface Props {
   username: string
@@ -43,8 +44,7 @@ export function ElybyAvatar({ username, size = 72, className }: Props): React.JS
     setSrc(null)
     void (async () => {
       try {
-        // Main-process fetch avoids CSP/CORS issues with Ely.by redirect → http storage.
-        const dataUrl = await window.awesomeAPI.fetchElybySkin(name)
+        const dataUrl = await getElybySkinDataUrl(name)
         if (cancelled || !dataUrl) {
           if (!cancelled) setSrc(null)
           return

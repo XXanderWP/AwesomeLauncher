@@ -2,7 +2,7 @@ import type { ElybyAccount } from '@shared/types'
 import { ELYBY_ACCOUNT_DASHBOARD_URL } from '@shared/elybyProfile'
 import { elybyProfileUrl } from '@shared/elybyProfile'
 import { t } from '../i18n'
-import { ElybyAvatar } from './ElybyAvatar'
+import { ElybyAvatarPreview } from './ElybyAvatarPreview'
 
 interface Props {
   account: ElybyAccount
@@ -18,7 +18,7 @@ export function ElybyAccountCard({ account, onLogout }: Props): React.JSX.Elemen
 
   return (
     <section className="account-card" aria-label={t('account.cardTitle')}>
-      <ElybyAvatar username={account.displayName || account.username} size={72} />
+      <ElybyAvatarPreview username={account.displayName || account.username} size={72} />
       <div className="account-card-meta">
         <div className="account-card-title">{account.displayName}</div>
         <div className="actions actions-compact" style={{ marginTop: 10 }}>

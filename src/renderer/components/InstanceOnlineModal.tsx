@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { OnlinePlayer, OnlinePlayersResult } from '@shared/types'
 import { t } from '../i18n'
-import { ElybyAvatar } from './ElybyAvatar'
+import { ElybyAvatarPreview } from './ElybyAvatarPreview'
 
 interface Props {
   open: boolean
@@ -39,30 +39,30 @@ function PlayerRow({ player }: { player: OnlinePlayer }): React.JSX.Element {
     await window.awesomeAPI.openExternal(profileUrl)
   }
 
-  const identity = (
+  const meta = (
     <>
-      <ElybyAvatar username={player.name} size={40} className="online-player-avatar" />
-      <div className="online-player-meta">
-        <strong>{player.name}</strong>
-        <span className="muted online-player-uuid">{player.uuid}</span>
-      </div>
+      <strong>{player.name}</strong>
+      <span className="muted online-player-uuid">{player.uuid}</span>
     </>
   )
 
   return (
     <div className="online-player-row">
-      {profileUrl ? (
-        <button
-          type="button"
-          className="online-player-identity online-player-identity-link"
-          title={t('instance.online.openProfile')}
-          onClick={() => void openProfile()}
-        >
-          {identity}
-        </button>
-      ) : (
-        <div className="online-player-identity">{identity}</div>
-      )}
+      <div className="online-player-identity">
+        <ElybyAvatarPreview username={player.name} size={40} className="online-player-avatar" />
+        {profileUrl ? (
+          <button
+            type="button"
+            className="online-player-meta online-player-meta-link"
+            title={t('instance.online.openProfile')}
+            onClick={() => void openProfile()}
+          >
+            {meta}
+          </button>
+        ) : (
+          <div className="online-player-meta">{meta}</div>
+        )}
+      </div>
       <div className="online-player-playtime" title={t('instance.online.playtime')}>
         {player.playtimeFormatted}
       </div>
