@@ -1,10 +1,50 @@
 /**
  * Environment for the Minecraft JVM + host launcher sanitizers.
  *
- * Helios inherits the parent env. We do the same for Wayland/DISPLAY, but the
- * Minecraft JVM must NEVER see AppImage/Electron LD_LIBRARY_PATH — including
- * this launcher's own /tmp/.mount_* (that breaks NVIDIA GLX / GLFW).
+ * On Linux we do NOT inherit the full parent env. Electron / AppImage / Cursor
+ * inject LD_LIBRARY_PATH, APPDIR, GTK/QT module paths, and Wayland markers that
+ * make NVIDIA GLX + GLFW SIGSEGV inside glfwWaitEventsTimeout
+ * (org.lwjgl.system.JNI). Clearing LD_LIBRARY_PATH alone is not enough when the
+ * parent is an AppImage — a whitelist + forced X11/XWayland path is required.
+ *
+ * The Electron host still keeps its own APPDIR libs via sanitizeLauncherProcessEnv.
  */
+
+const LINUX_PASSTHROUGH = [
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'TMPDIR',
+  'TEMP',
+  'TMP',
+  'LANG',
+  'LANGUAGE',
+  'LC_ALL',
+  'LC_CTYPE',
+  'LC_MESSAGES',
+  'LC_NUMERIC',
+  'LC_TIME',
+  'LC_COLLATE',
+  'LC_MONETARY',
+  'TZ',
+  'DISPLAY',
+  'XAUTHORITY',
+  'XDG_RUNTIME_DIR',
+  'XDG_DATA_HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_CACHE_HOME',
+  'XDG_STATE_HOME',
+  'DBUS_SESSION_BUS_ADDRESS',
+  'SSH_AUTH_SOCK',
+  'XCURSOR_SIZE',
+  'XCURSOR_THEME',
+  'GTK_THEME',
+  'QT_QPA_PLATFORMTHEME',
+  'JAVA_HOME',
+  'HOSTNAME',
+  'PWD'
+]
 
 function isMountPath(entry) {
   return Boolean(entry && (entry.includes('/.mount_') || entry.includes('/tmp/.mount_')))
@@ -81,27 +121,50 @@ function sanitizeLauncherProcessEnv(env = process.env, platform = process.platfo
 }
 
 /**
- * Env for the Minecraft child: inherit session (Wayland/DISPLAY/…), but never
- * pass AppImage library search paths into the JVM.
+ * Whitelisted Linux env for Minecraft: X11/GLX via XWayland, no AppImage/Electron
+ * library or toolkit module paths, no WAYLAND_DISPLAY.
  */
-function buildMinecraftProcessEnv(baseEnv = process.env, platform = process.platform) {
-  const env = { ...baseEnv }
+function buildLinuxMinecraftEnv(baseEnv) {
+  const env = {}
 
-  if (platform === 'linux') {
-    env.__GL_THREADED_OPTIMIZATIONS = '0'
-
-    // Critical: strip ALL AppImage mounts for the game, including our APPDIR.
-    // Electron needs those libs; Minecraft/NVIDIA must use the system GL stack.
-    delete env.LD_LIBRARY_PATH
-    delete env.LD_PRELOAD
-    env.PATH = sanitizePath(env.PATH, null)
-
-    delete env.ELECTRON_RUN_AS_NODE
-    delete env.ELECTRON_NO_ASAR
-    delete env.ELECTRON_NO_ATTACH_CONSOLE
+  for (const key of LINUX_PASSTHROUGH) {
+    if (baseEnv[key] != null && baseEnv[key] !== '') {
+      env[key] = baseEnv[key]
+    }
   }
 
+  for (const [key, value] of Object.entries(baseEnv)) {
+    if (key.startsWith('LC_') && value != null && value !== '' && env[key] == null) {
+      env[key] = value
+    }
+  }
+
+  // Never pass host/AppImage library search paths into Minecraft.
+  env.PATH = sanitizePath(baseEnv.PATH, null)
+  // Explicitly omit LD_LIBRARY_PATH / LD_PRELOAD / APPDIR / APPIMAGE / ELECTRON_*.
+
+  env.__GL_THREADED_OPTIMIZATIONS = '0'
+  env.mesa_glthread = 'false'
+
+  if (baseEnv.DISPLAY) {
+    env.DISPLAY = baseEnv.DISPLAY
+  }
+  // Force X11/GLX (XWayland). LWJGL 3.3 / MC 1.20.1 has no stable Wayland path;
+  // inheriting WAYLAND_DISPLAY from an AppImage Electron session still SIGSEGVs
+  // in glfwWaitEventsTimeout even with LD_LIBRARY_PATH cleared.
+  env.XDG_SESSION_TYPE = 'x11'
+  env.GDK_BACKEND = 'x11'
+  env.GLFW_PLATFORM = 'x11'
+  env.QT_QPA_PLATFORM = 'xcb'
+
   return env
+}
+
+function buildMinecraftProcessEnv(baseEnv = process.env, platform = process.platform) {
+  if (platform === 'linux') {
+    return buildLinuxMinecraftEnv(baseEnv)
+  }
+  return { ...baseEnv }
 }
 
 module.exports = {
@@ -109,5 +172,6 @@ module.exports = {
   sanitizeLauncherProcessEnv,
   sanitizeLdLibraryPath,
   sanitizePath,
-  isBundledLibPath
+  isBundledLibPath,
+  LINUX_PASSTHROUGH
 }

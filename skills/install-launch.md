@@ -48,18 +48,24 @@ makes Node `path.join` discard the natives directory on Linux and write to the f
 
 ## Linux NVIDIA / GLFW
 
-On Linux, Minecraft spawn matches Helios / [AwesomeCraftLauncher](https://github.com/XXanderWP/AwesomeCraftLauncher)
-for the session, with one critical extra rule for AppImage builds:
+On Linux, Minecraft gets a **whitelisted X11-oriented env** (not a full parent
+clone). Clearing `LD_LIBRARY_PATH` alone is not enough for AppImage builds —
 
-1. **Inherit session env** (`WAYLAND_DISPLAY`, `XDG_SESSION_TYPE`, `DISPLAY`, …).
-2. Set `__GL_THREADED_OPTIMIZATIONS=0`.
-3. **Delete `LD_LIBRARY_PATH` / `LD_PRELOAD` for the JVM entirely** (including this
-   launcher’s own `/tmp/.mount_*`). Electron keeps its `APPDIR` libs; Minecraft must
-   use the system NVIDIA/GLX stack. Passing the AppImage mount into Java causes
-   `SIGSEGV` in `glfwWaitEventsTimeout`.
-4. Strip all `/tmp/.mount_*` from the child’s `PATH`; drop a few `ELECTRON_*` markers.
+1. **Whitelist** session basics (`HOME`, `DISPLAY`, `XAUTHORITY`, `XDG_RUNTIME_DIR`,
+   locales, …). Do **not** pass `APPDIR` / `APPIMAGE` / `ELECTRON_*` / `GTK_PATH` /
+   `WAYLAND_DISPLAY`.
+2. Force X11/GLX via XWayland: `XDG_SESSION_TYPE=x11`, `GDK_BACKEND=x11`,
+   `GLFW_PLATFORM=x11`, `QT_QPA_PLATFORM=xcb`.
+3. Set `__GL_THREADED_OPTIMIZATIONS=0` and `mesa_glthread=false`.
+4. **Never** set `LD_LIBRARY_PATH` / `LD_PRELOAD` for the JVM. Strip all
+   `/tmp/.mount_*` from the child’s `PATH`.
 
-Host sanitizer only removes *foreign* mounts from the Electron process itself.
+Host sanitizer only removes *foreign* mounts from the Electron process itself
+(keeps this app’s `APPDIR` so packaged Electron helpers keep working).
+
+Without the whitelist, AppImage launches still `SIGSEGV` in
+`glfwWaitEventsTimeout` after the title screen even with `LD_LIBRARY_PATH`
+cleared; `npm run start` often survives because it has no AppImage mount vars.
 
 Default JVM options match Helios Java 17 (short G1 set), not Aikar server flags.
 Existing `config.json` `jvmOptions` are kept until the user resets them — GC flags

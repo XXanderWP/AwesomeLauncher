@@ -340,7 +340,7 @@ describe('nativeExtract', () => {
 })
 
 describe('launchEnv', () => {
-  it('inherits Wayland but never passes AppImage LD_LIBRARY_PATH to Minecraft', () => {
+  it('whitelists X11 env and drops AppImage/Wayland pollution for Minecraft', () => {
     const env = buildMinecraftProcessEnv(
       {
         PATH: '/tmp/.mount_App/usr/bin:/usr/bin',
@@ -349,18 +349,26 @@ describe('launchEnv', () => {
         WAYLAND_DISPLAY: 'wayland-0',
         XDG_SESSION_TYPE: 'wayland',
         APPDIR: '/tmp/.mount_App',
+        APPIMAGE: '/tmp/App.AppImage',
         LD_LIBRARY_PATH: '/tmp/.mount_App/usr/lib:/usr/lib',
+        GTK_PATH: '/tmp/.mount_App/usr/lib/gtk',
         ELECTRON_RUN_AS_NODE: '1',
         __GL_THREADED_OPTIMIZATIONS: '1'
       },
       'linux'
     )
     expect(env.__GL_THREADED_OPTIMIZATIONS).toBe('0')
-    expect(env.WAYLAND_DISPLAY).toBe('wayland-0')
-    expect(env.XDG_SESSION_TYPE).toBe('wayland')
+    expect(env.mesa_glthread).toBe('false')
+    expect(env.WAYLAND_DISPLAY).toBeUndefined()
+    expect(env.XDG_SESSION_TYPE).toBe('x11')
+    expect(env.GDK_BACKEND).toBe('x11')
+    expect(env.GLFW_PLATFORM).toBe('x11')
+    expect(env.QT_QPA_PLATFORM).toBe('xcb')
     expect(env.DISPLAY).toBe(':0')
     expect(env.HOME).toBe('/home/demo')
-    expect(env.APPDIR).toBe('/tmp/.mount_App')
+    expect(env.APPDIR).toBeUndefined()
+    expect(env.APPIMAGE).toBeUndefined()
+    expect(env.GTK_PATH).toBeUndefined()
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined()
     expect(env.LD_LIBRARY_PATH).toBeUndefined()
     expect(env.PATH).not.toContain('.mount_')

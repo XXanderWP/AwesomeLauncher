@@ -131,8 +131,10 @@ class ProcessBuilder {
       const glSummary = [
         `__GL_THREADED_OPTIMIZATIONS=${launchEnv.__GL_THREADED_OPTIMIZATIONS}`,
         `XDG_SESSION_TYPE=${launchEnv.XDG_SESSION_TYPE || '-'}`,
+        `GLFW_PLATFORM=${launchEnv.GLFW_PLATFORM || '-'}`,
         `WAYLAND_DISPLAY=${launchEnv.WAYLAND_DISPLAY || '(unset)'}`,
         `LD_LIBRARY_PATH=${launchEnv.LD_LIBRARY_PATH || '(cleared)'}`,
+        `APPDIR=${launchEnv.APPDIR || '(unset)'}`,
         `DISPLAY=${launchEnv.DISPLAY || '-'}`
       ].join(' ')
       logger.info('Linux GL env:', glSummary)
@@ -144,7 +146,12 @@ class ProcessBuilder {
           'XDG_SESSION_TYPE',
           'XDG_RUNTIME_DIR',
           'XAUTHORITY',
+          'GDK_BACKEND',
+          'GLFW_PLATFORM',
+          'QT_QPA_PLATFORM',
           'LD_LIBRARY_PATH',
+          'APPDIR',
+          'APPIMAGE',
           '__GL_THREADED_OPTIMIZATIONS',
           'PATH'
         ]
