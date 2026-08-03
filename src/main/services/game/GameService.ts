@@ -20,10 +20,12 @@ export class GameService {
     running: false,
     pid: null,
     startedAt: null,
-    exitCode: null
+    exitCode: null,
+    serverId: null
   }
   private logs: GameLogLine[] = []
   private readonly maxLogs = 5000
+  private readonly stateListeners = new Set<(state: GameProcessState) => void>()
 
   constructor(
     private readonly config: ConfigService,
@@ -33,6 +35,13 @@ export class GameService {
 
   getState(): GameProcessState {
     return { ...this.state }
+  }
+
+  onStateChange(listener: (state: GameProcessState) => void): () => void {
+    this.stateListeners.add(listener)
+    return () => {
+      this.stateListeners.delete(listener)
+    }
   }
 
   getLogs(): GameLogLine[] {
@@ -110,7 +119,7 @@ export class GameService {
     }
 
     const child: ChildProcess = builder.build()
-    this.attachChild(child)
+    this.attachChild(child, serverId)
     this.emitProgressIdle()
     return this.getState()
   }
@@ -139,13 +148,14 @@ export class GameService {
     return this.getState()
   }
 
-  private attachChild(child: ChildProcess): void {
+  private attachChild(child: ChildProcess, serverId: string): void {
     this.child = child
     this.state = {
       running: true,
       pid: child.pid ?? null,
       startedAt: Date.now(),
-      exitCode: null
+      exitCode: null,
+      serverId
     }
     this.emitState()
     this.pushLog('system', `Minecraft process started (pid ${child.pid ?? '?'})`)
@@ -172,7 +182,8 @@ export class GameService {
         running: false,
         pid: null,
         startedAt: this.state.startedAt,
-        exitCode: code
+        exitCode: code,
+        serverId: null
       }
       this.child = null
       if (signal) {
@@ -196,8 +207,16 @@ export class GameService {
   }
 
   private emitState(): void {
+    const snapshot = this.getState()
     for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send(IPC.EVENT_GAME_STATE, this.getState())
+      win.webContents.send(IPC.EVENT_GAME_STATE, snapshot)
+    }
+    for (const listener of this.stateListeners) {
+      try {
+        listener(snapshot)
+      } catch (err) {
+        console.error('[GameService] state listener failed:', err)
+      }
     }
   }
 

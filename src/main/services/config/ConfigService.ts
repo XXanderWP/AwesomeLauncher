@@ -47,7 +47,8 @@ function buildDefaultConfig(): AppConfig {
         allowPrerelease: false,
         preservePlayerConfigs: true,
         skipLoadingGifs: false,
-        disableUiBlur: false
+        disableUiBlur: false,
+        discordRichPresence: true
       }
     },
     javaDefaults: buildDefaultJavaSettings(),
@@ -213,6 +214,9 @@ export class ConfigService {
     }
     if (typeof merged.settings?.launcher?.disableUiBlur !== 'boolean') {
       merged.settings.launcher.disableUiBlur = false
+    }
+    if (typeof merged.settings?.launcher?.discordRichPresence !== 'boolean') {
+      merged.settings.launcher.discordRichPresence = true
     }
     return merged
   }

@@ -41,6 +41,7 @@
   "dependencies": {
     "@xxanderwp/translate-module": "^1.0.7",
     "adm-zip": "^0.5.16",
+    "discord-rpc": "^4.0.1",
     "electron-updater": "^6.7.3",
     "fs-extra": "^11.3.3",
     "got": "^11.8.6",
@@ -56,6 +57,7 @@
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@eslint/js": "^9.39.2",
+    "@types/discord-rpc": "^4.0.11",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.21",

@@ -2,13 +2,14 @@ import { createRequire } from 'node:module'
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron'
 import fs from 'fs-extra'
 import os from 'os'
-import { join } from 'path'
+import { join, resolve as resolvePath } from 'path'
 import { ConfigService } from './services/config/ConfigService'
 import { DistroService } from './services/distro/DistroService'
 import { InstallService } from './services/download/InstallService'
 import { ModsService } from './services/mods/ModsService'
 import { GameService } from './services/game/GameService'
 import { UpdaterService } from './services/updater/UpdaterService'
+import { DiscordPresenceService } from './services/discord/DiscordPresenceService'
 import {
   authenticate,
   accountFromAuthResponse,
@@ -34,6 +35,7 @@ import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
 import { bytesToMb } from '../shared/ramValidation'
 import { instanceDirectory } from './utils/paths'
+import { PROTOCOL_SCHEME, findProtocolUrlInArgv, parseLaunchProtocolUrl } from '../shared/protocol'
 
 // Strip Cursor / foreign AppImage LD_LIBRARY_PATH from the host before any spawn.
 // Runtime file lives in out/launch/ (copied by copy-launch-assets), next to out/main/.
@@ -48,6 +50,23 @@ if (hostEnvSanitized.changed) {
   )
 }
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
+function registerProtocolClient(): void {
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(PROTOCOL_SCHEME, process.execPath, [
+        resolvePath(process.argv[1])
+      ])
+    }
+  } else {
+    app.setAsDefaultProtocolClient(PROTOCOL_SCHEME)
+  }
+}
+
 let mainWindow: BrowserWindow | null = null
 let configService: ConfigService
 let distroService: DistroService
@@ -55,7 +74,65 @@ let installService: InstallService
 let modsService: ModsService
 let gameService: GameService
 let updaterService: UpdaterService
+let discordPresence: DiscordPresenceService
 let activeDeviceCode: string | null = null
+let servicesReady = false
+let pendingProtocolUrl: string | null = findProtocolUrlInArgv(process.argv)
+
+function focusMainWindow(): void {
+  if (!mainWindow) {
+    createWindow()
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+async function handleProtocolUrl(rawUrl: string): Promise<void> {
+  const parsed = parseLaunchProtocolUrl(rawUrl)
+  if (!parsed) {
+    console.log(`[Protocol] Ignored URL: ${rawUrl}`)
+    return
+  }
+
+  focusMainWindow()
+
+  if (!servicesReady || !gameService || !configService) {
+    pendingProtocolUrl = rawUrl
+    console.log(`[Protocol] Queued launch for server ${parsed.serverId}`)
+    return
+  }
+
+  if (gameService.getState().running) {
+    console.log(`[Protocol] Game already running; focusing launcher (${parsed.serverId})`)
+    return
+  }
+
+  try {
+    await configService.update({ selectedServerId: parsed.serverId })
+    console.log(`[Protocol] Launching server ${parsed.serverId}`)
+    await gameService.launch(parsed.serverId)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[Protocol] Launch failed: ${message}`)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'AwesomeCraft Launcher',
+        message: 'Could not launch from Discord join link',
+        detail: message
+      })
+    }
+  }
+}
+
+async function flushPendingProtocolUrl(): Promise<void> {
+  if (!pendingProtocolUrl) return
+  const url = pendingProtocolUrl
+  pendingProtocolUrl = null
+  await handleProtocolUrl(url)
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -121,6 +198,11 @@ function registerIpc(): void {
     }
     if (partial.settings?.launcher?.updateMode) {
       updaterService.applyUpdateMode(partial.settings.launcher.updateMode as UpdateMode)
+    }
+    if (partial.settings?.launcher && 'discordRichPresence' in partial.settings.launcher) {
+      void discordPresence?.onConfigChanged()
+    } else if (partial.settings?.launcher?.language !== undefined) {
+      void discordPresence?.onConfigChanged()
     }
     return next
   })
@@ -381,7 +463,10 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
+  if (!gotSingleInstanceLock) return
+
   Menu.setApplicationMenu(null)
+  registerProtocolClient()
 
   configService = new ConfigService()
   await configService.load()
@@ -391,10 +476,14 @@ app.whenReady().then(async () => {
   modsService = new ModsService(configService, distroService)
   gameService = new GameService(configService, distroService, installService)
   updaterService = new UpdaterService(configService)
+  discordPresence = new DiscordPresenceService(configService, distroService, gameService)
 
   registerIpc()
   createWindow()
   updaterService.init()
+  discordPresence.start()
+  servicesReady = true
+  void flushPendingProtocolUrl()
 
   // Enrich elyId in the background — never block first paint on network.
   const selected = configService.getSelectedAccount()
@@ -415,6 +504,23 @@ app.whenReady().then(async () => {
   })
 })
 
+app.on('second-instance', (_event, argv) => {
+  const url = findProtocolUrlInArgv(argv)
+  focusMainWindow()
+  if (url) {
+    void handleProtocolUrl(url)
+  }
+})
+
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  if (servicesReady) {
+    void handleProtocolUrl(url)
+  } else {
+    pendingProtocolUrl = url
+  }
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
@@ -425,4 +531,5 @@ app.on('before-quit', () => {
   if (gameService?.getState().running) {
     gameService.kill()
   }
+  void discordPresence?.stop()
 })

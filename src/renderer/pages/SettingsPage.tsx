@@ -222,6 +222,29 @@ export function SettingsPage({
             <small>{t('settings.disableUiBlur.hint')}</small>
           </span>
         </label>
+
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={draft.settings.launcher.discordRichPresence !== false}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                settings: {
+                  ...draft.settings,
+                  launcher: {
+                    ...draft.settings.launcher,
+                    discordRichPresence: e.target.checked
+                  }
+                }
+              })
+            }
+          />
+          <span>
+            <strong>{t('settings.discordRichPresence')}</strong>
+            <small>{t('settings.discordRichPresence.hint')}</small>
+          </span>
+        </label>
       </section>
 
       <section className="field">

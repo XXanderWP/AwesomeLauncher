@@ -92,6 +92,7 @@ export async function installLinuxDesktopShortcut(): Promise<LinuxShortcutStatus
   })
   await fs.writeFile(desktopPath, contents, { encoding: 'utf8', mode: 0o755 })
 
+  await registerLinuxProtocolHandler(desktopPath)
   await refreshDesktopDatabase(path.dirname(desktopPath))
 
   return getLinuxShortcutStatus()
@@ -108,6 +109,18 @@ export async function removeLinuxDesktopShortcut(): Promise<LinuxShortcutStatus>
   await fs.remove(iconPath)
   await refreshDesktopDatabase(path.dirname(desktopPath))
   return getLinuxShortcutStatus()
+}
+
+async function registerLinuxProtocolHandler(desktopPath: string): Promise<void> {
+  try {
+    await execFileAsync(
+      'xdg-mime',
+      ['default', path.basename(desktopPath), 'x-scheme-handler/awesomelauncher'],
+      { timeout: 5000 }
+    )
+  } catch {
+    // Optional on minimal desktops / non-XDG environments.
+  }
 }
 
 async function refreshDesktopDatabase(applicationsDir: string): Promise<void> {

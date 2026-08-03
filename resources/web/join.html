@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AwesomeCraft — Connect</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f1218;
+        color: #e8ecf4;
+      }
+      main {
+        max-width: 28rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      a {
+        color: #7eb6ff;
+      }
+      .muted {
+        color: #9aa3b5;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AwesomeCraft</h1>
+      <p id="status">Opening the launcher…</p>
+      <p class="muted">
+        If nothing happens,
+        <a id="open-link" href="#">open AwesomeCraft Launcher</a>
+        or install it from
+        <a href="https://github.com/XXanderWP/AwesomeLauncher/releases">GitHub Releases</a>.
+      </p>
+    </main>
+    <script>
+      ;(function () {
+        var params = new URLSearchParams(window.location.search)
+        var server = (params.get('server') || '').trim()
+        var statusEl = document.getElementById('status')
+        var linkEl = document.getElementById('open-link')
+        if (!server) {
+          statusEl.textContent = 'Missing server id.'
+          linkEl.removeAttribute('href')
+          return
+        }
+        var deepLink = 'awesomelauncher://launch/' + encodeURIComponent(server)
+        linkEl.setAttribute('href', deepLink)
+        statusEl.textContent = 'Launching instance “' + server + '”…'
+        window.location.replace(deepLink)
+      })()
+    </script>
+  </body>
+</html>

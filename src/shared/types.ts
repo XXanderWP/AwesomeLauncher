@@ -43,6 +43,8 @@ export interface LauncherSettings {
   skipLoadingGifs: boolean
   /** Disable backdrop blur on main UI panels. */
   disableUiBlur: boolean
+  /** Show Discord Rich Presence while the launcher/game is running. */
+  discordRichPresence: boolean
 }
 
 export interface AppConfig {
@@ -143,6 +145,8 @@ export interface GameProcessState {
   pid: number | null
   startedAt: number | null
   exitCode: number | null
+  /** Distro server id of the running instance, when `running` is true. */
+  serverId: string | null
 }
 
 export interface UpdateInfoPayload {

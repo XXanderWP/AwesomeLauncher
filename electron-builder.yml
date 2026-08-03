@@ -8,6 +8,11 @@ asar: true
 # Prefer faster unpack over smallest download — AppImage mount + asar I/O benefit.
 compression: normal
 
+protocols:
+  - name: AwesomeCraft Launcher
+    schemes:
+      - awesomelauncher
+
 files:
   - '!**/.vscode/*'
   - '!src/*'

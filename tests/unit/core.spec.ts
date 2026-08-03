@@ -254,6 +254,7 @@ describe('linuxDesktop helpers', () => {
     )
     expect(entry).toContain('Categories=Game;')
     expect(entry).toContain('StartupWMClass=AwesomeCraftLauncher')
+    expect(entry).toContain('MimeType=x-scheme-handler/awesomelauncher;')
   })
 })
 

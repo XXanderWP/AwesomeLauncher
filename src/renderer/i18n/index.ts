@@ -110,6 +110,9 @@ const translations = {
     'settings.skipLoadingGifs.hint': 'Hide the random splash GIF and skip the extra loading delay.',
     'settings.disableUiBlur': 'Disable UI blur',
     'settings.disableUiBlur.hint': 'Turn off frosted-glass blur on panels in the main section.',
+    'settings.discordRichPresence': 'Discord Rich Presence',
+    'settings.discordRichPresence.hint':
+      'Show launcher and in-game status in Discord. Friends can open a join link when you are on a server.',
     'settings.resolution': 'Resolution',
     'settings.fullscreen': 'Fullscreen',
     'settings.autoConnect': 'Auto-connect to server',
@@ -271,6 +274,9 @@ const translations = {
       'Не показывать случайный GIF и пропустить дополнительную задержку загрузки.',
     'settings.disableUiBlur': 'Отключить размытие UI',
     'settings.disableUiBlur.hint': 'Выключить эффект blur на панелях в главном разделе.',
+    'settings.discordRichPresence': 'Discord Rich Presence',
+    'settings.discordRichPresence.hint':
+      'Показывать статус лаунчера и игры в Discord. Когда вы на сервере, друзья могут открыть ссылку для подключения.',
     'settings.resolution': 'Разрешение',
     'settings.fullscreen': 'Полный экран',
     'settings.autoConnect': 'Автоподключение к серверу',
@@ -431,6 +437,9 @@ const translations = {
       'Не показувати випадковий GIF і пропустити додаткову затримку завантаження.',
     'settings.disableUiBlur': 'Вимкнути розмиття UI',
     'settings.disableUiBlur.hint': 'Вимкнути ефект blur на панелях у головному розділі.',
+    'settings.discordRichPresence': 'Discord Rich Presence',
+    'settings.discordRichPresence.hint':
+      'Показувати статус лаунчера та гри в Discord. Коли ви на сервері, друзі можуть відкрити посилання для підключення.',
     'settings.resolution': 'Роздільність',
     'settings.fullscreen': 'Повний екран',
     'settings.autoConnect': 'Автопідключення до сервера',

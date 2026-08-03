@@ -63,6 +63,7 @@ describe('ConfigService', () => {
     const cfg = await service.load()
     expect(cfg.clientToken).toHaveLength(32)
     expect(cfg.settings.launcher.preservePlayerConfigs).toBe(true)
+    expect(cfg.settings.launcher.discordRichPresence).toBe(true)
     expect(cfg.settings.launcher.language).toBe('system')
     expect(cfg.javaDefaults.maxRamMb).toBeGreaterThan(0)
     expect(cfg.javaDefaults.jvmOptions).toEqual(getDefaultJvmOptions())
@@ -483,5 +484,88 @@ describe('path helpers and constants', () => {
     expect(DISTRO_URL).toContain('distribution.json')
     expect(ELYBY_AUTH_URL).toContain('ely.by')
     expect(getSupportedLanguages()).toEqual(['en', 'ru', 'uk'])
+  })
+})
+
+describe('protocol deep links', () => {
+  const {
+    buildDiscordJoinButtonUrl,
+    buildProtocolLaunchUrl,
+    findProtocolUrlInArgv,
+    parseLaunchProtocolUrl
+  } = require('../../src/shared/protocol') as typeof import('../../src/shared/protocol')
+
+  it('parses launch URLs', () => {
+    expect(parseLaunchProtocolUrl('awesomelauncher://launch/Prominence')).toEqual({
+      serverId: 'Prominence'
+    })
+    expect(parseLaunchProtocolUrl('awesomelauncher://launch?server=Prominence')).toEqual({
+      serverId: 'Prominence'
+    })
+    expect(parseLaunchProtocolUrl('awesomelauncher://launch/My%20Server')).toEqual({
+      serverId: 'My Server'
+    })
+    expect(parseLaunchProtocolUrl('https://example.com')).toBeNull()
+  })
+
+  it('finds protocol args and builds join URLs', () => {
+    expect(findProtocolUrlInArgv(['node', 'app', 'awesomelauncher://launch/Prominence'])).toBe(
+      'awesomelauncher://launch/Prominence'
+    )
+    expect(buildProtocolLaunchUrl('Prominence')).toBe('awesomelauncher://launch/Prominence')
+    expect(buildDiscordJoinButtonUrl('Prominence')).toContain('server=Prominence')
+    expect(buildDiscordJoinButtonUrl('Prominence')).toContain('join.html')
+  })
+})
+
+describe('discord presence helpers', () => {
+  const {
+    DISCORD_ASSET_MAIN,
+    DISCORD_ASSET_PROMINENCE,
+    getPresenceStrings,
+    normalizeUuid,
+    resolveLargeImageKey
+  } =
+    require('../../src/main/services/discord/presenceText') as typeof import('../../src/main/services/discord/presenceText')
+  const { isJoinBridgeAvailable, resetJoinBridgeAvailabilityCache } =
+    require('../../src/main/services/discord/joinBridge') as typeof import('../../src/main/services/discord/joinBridge')
+
+  beforeEach(() => {
+    resetJoinBridgeAvailabilityCache()
+  })
+
+  it('normalizes uuids and picks asset keys', () => {
+    expect(normalizeUuid('01234567-89AB-CDEF-0123-456789ABCDEF')).toBe(
+      '0123456789abcdef0123456789abcdef'
+    )
+    expect(resolveLargeImageKey({ gameRunning: false })).toBe(DISCORD_ASSET_MAIN)
+    expect(resolveLargeImageKey({ gameRunning: true })).toBe(DISCORD_ASSET_PROMINENCE)
+    expect(
+      resolveLargeImageKey({
+        gameRunning: true,
+        serverIconUrl: 'https://cdn.example/icon.png'
+      })
+    ).toBe('https://cdn.example/icon.png')
+  })
+
+  it('localizes on-server status with a middle dot', () => {
+    expect(getPresenceStrings('ru').onServer('XanderWP')).toBe('На сервере · XanderWP')
+    expect(getPresenceStrings('en').inLauncher('1.1.15')).toBe('In the launcher · 1.1.15')
+    expect(getPresenceStrings('ru').inLauncher('1.1.15')).toBe('В лаунчере · 1.1.15')
+  })
+
+  it('probes join bridge and caches the result', async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({ ok: true, status: 200 })
+
+    await expect(isJoinBridgeAvailable(fetchImpl as typeof fetch, 1_000)).resolves.toBe(false)
+    await expect(isJoinBridgeAvailable(fetchImpl as typeof fetch, 2_000)).resolves.toBe(false)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+
+    resetJoinBridgeAvailabilityCache()
+    await expect(isJoinBridgeAvailable(fetchImpl as typeof fetch, 3_000)).resolves.toBe(true)
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 })

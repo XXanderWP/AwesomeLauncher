@@ -40,3 +40,5 @@ MIT (`LICENSE`, also declared in `package.json`)
 - RAM inputs use slider + numeric field with validation against system memory
 - Linux Settings can install a user `.desktop` shortcut + icon for KDE/GNOME app menus
 - macOS DMG must include `How to remove quarantine.txt` via `dmg.contents` (not only app extraFiles)
+- Discord Rich Presence (`DiscordPresenceService`, client id in service): launcher / in-game / on-server states; toggle `settings.launcher.discordRichPresence` (default on)
+- Custom protocol `awesomelauncher://launch/<serverId>` (single-instance); Discord join button uses HTTPS bridge `resources/web/join.html` hosted at files CDN

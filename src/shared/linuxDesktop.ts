@@ -34,6 +34,7 @@ export function buildLinuxDesktopEntry(options: LinuxDesktopEntryOptions): strin
     'Categories=Game;',
     'StartupNotify=true',
     `StartupWMClass=${wmClass}`,
+    'MimeType=x-scheme-handler/awesomelauncher;',
     ''
   ].join('\n')
 }

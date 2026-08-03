@@ -51,7 +51,8 @@ export function App(): React.JSX.Element {
     running: false,
     pid: null,
     startedAt: null,
-    exitCode: null
+    exitCode: null,
+    serverId: null
   })
   const [logs, setLogs] = useState<GameLogLine[]>([])
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
