@@ -399,10 +399,14 @@ export function InstanceMapModal({
 
   useEffect(() => {
     if (!open) return
-    const onResize = (): void => paint()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [open, paint])
+    const el = viewportRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      paint()
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [open, map, paint])
 
   function toMapPixel(clientX: number, clientY: number): { x: number; y: number } | null {
     const canvas = canvasRef.current
