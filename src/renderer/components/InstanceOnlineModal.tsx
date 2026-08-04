@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { OnlinePlayer, OnlinePlayersResult } from '@shared/types'
+import type { OfflinePlayer, OnlinePlayer, OnlinePlayersResult } from '@shared/types'
 import { t } from '../i18n'
 import { ElybyAvatarPreview } from './ElybyAvatarPreview'
 
@@ -10,7 +10,19 @@ interface Props {
   onClose: () => void
 }
 
-function PlayerRow({ player }: { player: OnlinePlayer }): React.JSX.Element {
+type ListedPlayer = OnlinePlayer | OfflinePlayer
+
+function hasSession(player: ListedPlayer): player is OnlinePlayer {
+  return 'sessionFormatted' in player
+}
+
+function PlayerRow({
+  player,
+  showSession
+}: {
+  player: ListedPlayer
+  showSession: boolean
+}): React.JSX.Element {
   const [profileUrl, setProfileUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -46,6 +58,9 @@ function PlayerRow({ player }: { player: OnlinePlayer }): React.JSX.Element {
     </>
   )
 
+  const sessionFormatted =
+    showSession && hasSession(player) ? player.sessionFormatted : null
+
   return (
     <div className="online-player-row">
       <div className="online-player-identity">
@@ -63,8 +78,15 @@ function PlayerRow({ player }: { player: OnlinePlayer }): React.JSX.Element {
           <div className="online-player-meta">{meta}</div>
         )}
       </div>
-      <div className="online-player-playtime" title={t('instance.online.playtime')}>
-        {player.playtimeFormatted}
+      <div className="online-player-times">
+        <div className="online-player-playtime" title={t('instance.online.playtime')}>
+          {player.playtimeFormatted}
+        </div>
+        {sessionFormatted ? (
+          <div className="online-player-session" title={t('instance.online.session')}>
+            {sessionFormatted}
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -110,6 +132,8 @@ export function InstanceOnlineModal({
   if (!open) return null
 
   const players = payload?.players || []
+  const offlinePlayers = payload?.offlinePlayers || []
+  const supportsOfflineList = Boolean(payload?.supportsOfflineList)
   const showList = Boolean(payload?.ok)
 
   return (
@@ -146,16 +170,38 @@ export function InstanceOnlineModal({
             <div className="status-pill online-players-count">
               <span className={`dot ${players.length > 0 ? 'on' : 'off'}`} />
               {t('instance.online.count', payload?.online ?? 0, payload?.max ?? 0)}
+              {supportsOfflineList
+                ? ` · ${t('instance.online.offlineCount', payload?.offline ?? offlinePlayers.length)}`
+                : null}
             </div>
+
+            <h3 className="online-section-title">{t('instance.online.sectionOnline')}</h3>
             {players.length === 0 ? (
               <p className="muted">{t('instance.online.empty')}</p>
             ) : (
               <div className="online-players-list">
                 {players.map((player) => (
-                  <PlayerRow key={player.uuid} player={player} />
+                  <PlayerRow key={player.uuid} player={player} showSession />
                 ))}
               </div>
             )}
+
+            {supportsOfflineList ? (
+              <>
+                <h3 className="online-section-title online-section-title-offline">
+                  {t('instance.online.sectionOffline')}
+                </h3>
+                {offlinePlayers.length === 0 ? (
+                  <p className="muted">{t('instance.online.offlineEmpty')}</p>
+                ) : (
+                  <div className="online-players-list online-players-list-offline">
+                    {offlinePlayers.map((player) => (
+                      <PlayerRow key={player.uuid} player={player} showSession={false} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
           </>
         ) : null}
       </div>

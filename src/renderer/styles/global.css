@@ -1054,12 +1054,29 @@ button.warn-box.warning:focus-visible {
   margin: 4px 0 12px;
 }
 
+.online-section-title {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.online-section-title-offline {
+  margin-top: 16px;
+}
+
 .online-players-list {
   display: grid;
   gap: 8px;
-  max-height: min(50vh, 420px);
+  max-height: min(36vh, 320px);
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.online-players-list-offline {
+  max-height: min(28vh, 240px);
 }
 
 .online-player-row {
@@ -1134,10 +1151,24 @@ button.online-player-meta-link:focus-visible {
   white-space: nowrap;
 }
 
+.online-player-times {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  text-align: right;
+}
+
 .online-player-playtime {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--text-1);
+  white-space: nowrap;
+}
+
+.online-player-session {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-2);
   white-space: nowrap;
 }
 

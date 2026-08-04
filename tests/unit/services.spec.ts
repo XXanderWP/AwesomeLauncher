@@ -232,17 +232,95 @@ describe('onlinePlayers', () => {
     expect(result.ok).toBe(true)
     expect(result.online).toBe(2)
     expect(result.max).toBe(20)
+    expect(result.supportsOfflineList).toBe(false)
+    expect(result.offline).toBe(0)
+    expect(result.offlinePlayers).toEqual([])
     expect(result.players).toHaveLength(1)
     expect(result.players[0]).toMatchObject({
       uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5',
       name: 'Notch',
       playtimeSeconds: 3600,
-      playtimeFormatted: '0d 1h 0m 0s'
+      playtimeFormatted: '0d 1h 0m 0s',
+      sessionSeconds: null,
+      sessionFormatted: null
     })
     expect(global.fetch).toHaveBeenCalledWith(
       'http://127.0.0.1:1313/online',
       expect.objectContaining({ method: 'GET' })
     )
+  })
+
+  it('maps session and offline_players from newer status mod', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        online: 1,
+        max: 20,
+        offline: 1,
+        players: [
+          {
+            uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5',
+            name: 'Notch',
+            playtime_ticks: 72000,
+            playtime_seconds: 3600,
+            session_seconds: 125,
+            session_formatted: '0d 0h 2m 5s'
+          }
+        ],
+        offline_players: [
+          {
+            uuid: '853c80ef-3c37-49fd-aa49-938b6391d71a',
+            name: 'jeb_',
+            playtime_ticks: 1000,
+            playtime_seconds: 50
+          }
+        ]
+      })
+    })) as unknown as typeof fetch
+
+    const result = await fetchOnlinePlayers('127.0.0.1')
+    expect(result.ok).toBe(true)
+    expect(result.supportsOfflineList).toBe(true)
+    expect(result.offline).toBe(1)
+    expect(result.players[0]).toMatchObject({
+      sessionSeconds: 125,
+      sessionFormatted: '0d 0h 2m 5s'
+    })
+    expect(result.offlinePlayers).toHaveLength(1)
+    expect(result.offlinePlayers[0]).toMatchObject({
+      uuid: '853c80ef-3c37-49fd-aa49-938b6391d71a',
+      name: 'jeb_',
+      playtimeSeconds: 50,
+      playtimeFormatted: '0d 0h 0m 50s'
+    })
+  })
+
+  it('formats session from seconds when session_formatted is missing', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        online: 1,
+        max: 20,
+        offline: 0,
+        players: [
+          {
+            uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5',
+            name: 'Notch',
+            playtime_ticks: 20,
+            playtime_seconds: 1,
+            session_seconds: 3661,
+            session_formatted: null
+          }
+        ],
+        offline_players: []
+      })
+    })) as unknown as typeof fetch
+
+    const result = await fetchOnlinePlayers('127.0.0.1')
+    expect(result.players[0].sessionSeconds).toBe(3661)
+    expect(result.players[0].sessionFormatted).toBe('0d 1h 1m 1s')
   })
 
   it('maps HTTP errors', async () => {
@@ -259,6 +337,8 @@ describe('onlinePlayers', () => {
     expect(result.ok).toBe(false)
     expect(result.error).toContain('not ready')
     expect(result.players).toEqual([])
+    expect(result.offlinePlayers).toEqual([])
+    expect(result.supportsOfflineList).toBe(false)
   })
 })
 

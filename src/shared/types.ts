@@ -106,13 +106,33 @@ export interface OnlinePlayer {
   playtimeTicks: number
   playtimeSeconds: number
   playtimeFormatted: string
+  /**
+   * Seconds since last JOIN (status mod ≥1.1).
+   * `null` when the field is absent (old mod) or not tracked yet.
+   */
+  sessionSeconds: number | null
+  sessionFormatted: string | null
+}
+
+/** Offline player from `offline_players` (status mod ≥1.1; no session fields). */
+export interface OfflinePlayer {
+  uuid: string
+  name: string
+  playtimeTicks: number
+  playtimeSeconds: number
+  playtimeFormatted: string
 }
 
 export interface OnlinePlayersResult {
   ok: boolean
   online: number
   max: number
+  /** Offline count from API; `0` when the mod does not send it. */
+  offline: number
   players: OnlinePlayer[]
+  offlinePlayers: OfflinePlayer[]
+  /** True when response included `offline` / `offline_players` (mod ≥1.1). */
+  supportsOfflineList: boolean
   error?: string
 }
 
