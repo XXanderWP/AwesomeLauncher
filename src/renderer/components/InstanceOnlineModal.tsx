@@ -58,8 +58,7 @@ function PlayerRow({
     </>
   )
 
-  const sessionFormatted =
-    showSession && hasSession(player) ? player.sessionFormatted : null
+  const sessionFormatted = showSession && hasSession(player) ? player.sessionFormatted : null
 
   return (
     <div className="online-player-row">

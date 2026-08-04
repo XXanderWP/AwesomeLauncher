@@ -62,7 +62,9 @@ function emptyFailure(error: string): OnlinePlayersResult {
   }
 }
 
-function mapPlaytimePlayer(player: OnlineApiPlayer): Omit<OnlinePlayer, 'sessionSeconds' | 'sessionFormatted'> | null {
+function mapPlaytimePlayer(
+  player: OnlineApiPlayer
+): Omit<OnlinePlayer, 'sessionSeconds' | 'sessionFormatted'> | null {
   const uuid = asString(player.uuid)
   if (!uuid) return null
   const playtimeSeconds = asNumber(player.playtime_seconds)
@@ -150,9 +152,7 @@ export async function fetchOnlinePlayers(
       ok: true,
       online: asNumber(body?.online, players.length),
       max: asNumber(body?.max),
-      offline: supportsOfflineList
-        ? asNumber(body?.offline, offlinePlayers.length)
-        : 0,
+      offline: supportsOfflineList ? asNumber(body?.offline, offlinePlayers.length) : 0,
       players,
       offlinePlayers,
       supportsOfflineList
