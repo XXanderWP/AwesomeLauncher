@@ -10,11 +10,22 @@
  * in glfwCreateWindow / glfwWaitEventsTimeout). Clearing LD_LIBRARY_PATH alone
  * is not enough: we whitelist env and spawn through `/usr/bin/env -i` so the
  * JVM never inherits AppImage linker state.
+ *
+ * Cold boot / first AppImage launch after reboot can still SIGSEGV in
+ * glfwWaitEventsTimeout even with a clean JVM env: the NVIDIA GLX stack has
+ * not been touched by a *system* OpenGL client yet (AppImage Electron uses
+ * bundled libs). A short GLX probe with the same clean env warms XWayland +
+ * the driver — the same effect users see after a successful `npm run start`.
+ * Host PATH differences (nvm vs AppImage) are not the fix; Minecraft gets a
+ * fixed system PATH.
  */
 
 const child_process = require('child_process')
 const fs = require('fs')
 const path = require('path')
+
+/** Deterministic PATH for the JVM — never inherit nvm / AppImage / node_modules. */
+const LINUX_MINECRAFT_PATH = '/usr/local/bin:/usr/bin:/bin'
 
 const LINUX_PASSTHROUGH = [
   'HOME',
@@ -188,8 +199,8 @@ function buildLinuxMinecraftEnv(baseEnv) {
     }
   }
 
-  // Never pass host/AppImage library search paths into Minecraft.
-  env.PATH = sanitizePath(baseEnv.PATH, null)
+  // Fixed system PATH — do not inherit nvm / AppImage / shell extras.
+  env.PATH = LINUX_MINECRAFT_PATH
   // Explicitly omit LD_LIBRARY_PATH / LD_PRELOAD / APPDIR / APPIMAGE / ELECTRON_* / WAYLAND_*.
 
   env.__GL_THREADED_OPTIMIZATIONS = '0'
@@ -225,6 +236,63 @@ function buildLinuxMinecraftEnv(baseEnv) {
   return env
 }
 
+function envPairsForSpawn(env) {
+  return Object.entries(env)
+    .filter(([, value]) => value != null && value !== '')
+    .map(([key, value]) => `${key}=${value}`)
+}
+
+/**
+ * Touch system GLX / NVIDIA with the same clean env Minecraft will use.
+ * Avoids cold-boot AppImage-only SIGSEGV in glfwWaitEventsTimeout when the
+ * only prior GPU clients were Electron's AppImage-bundled libraries.
+ */
+function warmLinuxGraphics(env = {}, platform = process.platform) {
+  if (platform !== 'linux' || !env.DISPLAY) {
+    return { attempted: false, ok: false, command: null, status: null }
+  }
+
+  const probes = [
+    ['/usr/bin/glxinfo', ['-B']],
+    ['/usr/bin/nvidia-smi', ['-L']]
+  ]
+
+  const pairs = envPairsForSpawn(env)
+  for (const [command, args] of probes) {
+    if (!fileExists(command)) continue
+    try {
+      const result = child_process.spawnSync(
+        '/usr/bin/env',
+        ['-i', ...pairs, command, ...args],
+        {
+          encoding: 'utf8',
+          timeout: 10000,
+          env: { PATH: '/usr/bin:/bin' },
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
+      const ok = result.status === 0 && !result.error
+      return {
+        attempted: true,
+        ok,
+        command,
+        status: result.status,
+        error: result.error ? String(result.error.message || result.error) : null
+      }
+    } catch (err) {
+      return {
+        attempted: true,
+        ok: false,
+        command,
+        status: null,
+        error: String(err && err.message ? err.message : err)
+      }
+    }
+  }
+
+  return { attempted: false, ok: false, command: null, status: null }
+}
+
 function buildMinecraftProcessEnv(baseEnv = process.env, platform = process.platform) {
   if (platform === 'linux') {
     return buildLinuxMinecraftEnv(baseEnv)
@@ -244,9 +312,7 @@ function spawnMinecraftProcess(command, args, options = {}, platform = process.p
     return child_process.spawn(command, args, { cwd, detached, env })
   }
 
-  const envPairs = Object.entries(env)
-    .filter(([, value]) => value != null && value !== '')
-    .map(([key, value]) => `${key}=${value}`)
+  const envPairs = envPairsForSpawn(env)
 
   return child_process.spawn('/usr/bin/env', ['-i', ...envPairs, command, ...args], {
     cwd,
@@ -298,7 +364,9 @@ module.exports = {
   isMountPath,
   resolveXAuthority,
   isNvidiaLinux,
+  warmLinuxGraphics,
   spawnMinecraftProcess,
   stageAuthlibInjector,
-  LINUX_PASSTHROUGH
+  LINUX_PASSTHROUGH,
+  LINUX_MINECRAFT_PATH
 }

@@ -8,7 +8,7 @@ const os = require('os')
 const path = require('path')
 
 const { LegacyConfigBridge: ConfigManager, getAuthlibInjectorJarPath } = require('./launchBridge')
-const { buildMinecraftProcessEnv, spawnMinecraftProcess } = require('./launchEnv')
+const { buildMinecraftProcessEnv, spawnMinecraftProcess, warmLinuxGraphics } = require('./launchEnv')
 const ElybyPaths = {
   getAuthlibInjectorJarPath,
   isAuthlibInjectorAvailable: () => require('fs-extra').pathExistsSync(getAuthlibInjectorJarPath())
@@ -127,6 +127,10 @@ class ProcessBuilder {
     }
     const launchEnv = buildMinecraftProcessEnv()
     if (process.platform === 'linux') {
+      const warm = warmLinuxGraphics(launchEnv)
+      const warmSummary = warm.attempted
+        ? `warm=${warm.command} ok=${warm.ok} status=${warm.status}`
+        : 'warm=skipped'
       const glSummary = [
         `__GL_THREADED_OPTIMIZATIONS=${launchEnv.__GL_THREADED_OPTIMIZATIONS}`,
         `__GLX_VENDOR_LIBRARY_NAME=${launchEnv.__GLX_VENDOR_LIBRARY_NAME || '(unset)'}`,
@@ -137,6 +141,8 @@ class ProcessBuilder {
         `APPDIR=${launchEnv.APPDIR || '(unset)'}`,
         `DISPLAY=${launchEnv.DISPLAY || '-'}`,
         `XAUTHORITY=${launchEnv.XAUTHORITY || '(unset)'}`,
+        `PATH=${launchEnv.PATH || '-'}`,
+        warmSummary,
         `spawn=env -i`
       ].join(' ')
       logger.info('Linux GL env:', glSummary)
@@ -157,12 +163,16 @@ class ProcessBuilder {
           'APPIMAGE',
           '__GL_THREADED_OPTIMIZATIONS',
           '__GLX_VENDOR_LIBRARY_NAME',
+          '__EGL_VENDOR_LIBRARY_FILENAMES',
           'PATH'
         ]
-        fs.writeFileSync(
-          path.join(this.gameDir, '.launcher-env.log'),
-          keys.map((k) => `${k}=${launchEnv[k] ?? ''}`).join('\n') + '\n'
-        )
+        const lines = keys.map((k) => `${k}=${launchEnv[k] ?? ''}`)
+        lines.push(`warm.attempted=${warm.attempted}`)
+        lines.push(`warm.ok=${warm.ok}`)
+        lines.push(`warm.command=${warm.command ?? ''}`)
+        lines.push(`warm.status=${warm.status ?? ''}`)
+        if (warm.error) lines.push(`warm.error=${warm.error}`)
+        fs.writeFileSync(path.join(this.gameDir, '.launcher-env.log'), lines.join('\n') + '\n')
       } catch (err) {
         logger.warn('Could not write .launcher-env.log', err)
       }

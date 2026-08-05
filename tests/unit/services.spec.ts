@@ -46,7 +46,8 @@ const {
   sanitizeLauncherProcessEnv,
   stageAuthlibInjector,
   resolveXAuthority,
-  spawnMinecraftProcess
+  spawnMinecraftProcess,
+  warmLinuxGraphics
 } = require('../../src/main/services/launch/launchEnv.js')
 
 jest.mock('helios-core/mojang', () => ({
@@ -520,8 +521,34 @@ describe('launchEnv', () => {
     expect(env.GTK_PATH).toBeUndefined()
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined()
     expect(env.LD_LIBRARY_PATH).toBeUndefined()
+    expect(env.PATH).toBe('/usr/local/bin:/usr/bin:/bin')
     expect(env.PATH).not.toContain('.mount_')
-    expect(env.PATH).toContain('/usr/bin')
+  })
+
+  it('uses the same fixed PATH for AppImage-like and npm-like host PATH', () => {
+    const fromAppImage = buildMinecraftProcessEnv(
+      {
+        HOME: '/home/demo',
+        DISPLAY: ':0',
+        PATH: '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin'
+      },
+      'linux'
+    )
+    const fromNpm = buildMinecraftProcessEnv(
+      {
+        HOME: '/home/demo',
+        DISPLAY: ':0',
+        PATH: '/repo/node_modules/.bin:/home/demo/.nvm/versions/node/v22/bin:/usr/bin'
+      },
+      'linux'
+    )
+    expect(fromAppImage.PATH).toBe(fromNpm.PATH)
+    expect(fromAppImage.PATH).toBe('/usr/local/bin:/usr/bin:/bin')
+  })
+
+  it('skips GL warm-up when DISPLAY is missing', () => {
+    const warm = warmLinuxGraphics({ PATH: '/usr/bin:/bin' }, 'linux')
+    expect(warm.attempted).toBe(false)
   })
 
   it('resolves XAUTHORITY from XDG_RUNTIME_DIR xauth cookie on Wayland', () => {

@@ -57,22 +57,31 @@ clone). Clearing `LD_LIBRARY_PATH` alone is not enough for AppImage builds —
 2. Force X11/GLX via XWayland: `XDG_SESSION_TYPE=x11`, `GDK_BACKEND=x11`,
    `GLFW_PLATFORM=x11`, `QT_QPA_PLATFORM=xcb`.
 3. Set `__GL_THREADED_OPTIMIZATIONS=0` and `mesa_glthread=false`.
-4. **Never** set `LD_LIBRARY_PATH` / `LD_PRELOAD` for the JVM. Strip all
-   `/tmp/.mount_*` from the child’s `PATH`.
+4. **Never** set `LD_LIBRARY_PATH` / `LD_PRELOAD` for the JVM. Use a **fixed**
+   child `PATH` (`/usr/local/bin:/usr/bin:/bin`) — do not inherit nvm /
+   AppImage / `node_modules` PATH. Host PATH differences are not what makes
+   `npm run start` more reliable than AppImage.
+5. Before spawn, run a short **system GLX warm-up** (`glxinfo -B`, else
+   `nvidia-smi -L`) under the same clean `env -i` environment. Cold boot +
+   AppImage Electron (bundled libs) can leave NVIDIA/XWayland unready; the
+   first Minecraft launch then `SIGSEGV` in `glfwWaitEventsTimeout`. A prior
+   successful `npm` launch appears to “fix” AppImage for the same reason
+   (GPU already warmed), not because of PATH.
 
 Host sanitizer only removes *foreign* mounts from the Electron process itself
 (keeps this app’s `APPDIR` so packaged Electron helpers keep working).
 
 Without the whitelist, AppImage launches still `SIGSEGV` in
 `glfwWaitEventsTimeout` after the title screen even with `LD_LIBRARY_PATH`
-cleared; `npm run start` often survives because it has no AppImage mount vars.
+cleared; `npm run start` often survives because it has no AppImage mount vars
+*and* uses system OpenGL in the Electron parent (which also warms the driver).
 
 Default JVM options match Helios Java 17 (short G1 set), not Aikar server flags.
 Existing `config.json` `jvmOptions` are kept until the user resets them — GC flags
 do not cause the GLFW SIGSEGV.
 
-Each launch writes a short `instances/<id>/.launcher-env.log` and prints
-`[ProcessBuilder] Linux GL env: ...`.
+Each launch writes a short `instances/<id>/.launcher-env.log` (including warm-up
+result) and prints `[ProcessBuilder] Linux GL env: ...`.
 
 ## Game session UX
 
