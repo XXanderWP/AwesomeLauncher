@@ -4,6 +4,25 @@ set -e
 echo "▶ Running CI checks before push (format, lint, typecheck, test)..."
 
 autofixed=0
+stashed=0
+
+cleanup() {
+  if [ "$stashed" -eq 1 ]; then
+    echo "▶ Restoring stashed local changes..."
+    if ! git stash pop -q; then
+      echo "⚠ Could not restore stash automatically. Check: git stash list"
+    fi
+    stashed=0
+  fi
+}
+trap cleanup EXIT
+
+# Check what's being pushed against a clean tree (committed code only).
+if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+  echo "▶ Stashing local uncommitted changes for pre-push checks..."
+  git stash push --include-untracked -m "husky-pre-push-wip" -q
+  stashed=1
+fi
 
 run_with_autofix() {
   check_script="$1"
@@ -26,9 +45,27 @@ run_with_autofix lint lint:fix "Lint"
 
 if [ "$autofixed" -eq 1 ]; then
   if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo ""
-    echo "✖ Auto-fix updated files. Commit the changes and push again:"
-    git status --short
+    echo "▶ Auto-committing format/lint fixes..."
+    git add -u
+    git commit -m "Apply format/lint autofix from pre-push."
+
+    if [ "${HUSKY_AUTOPUSH_RETRY:-}" = "1" ]; then
+      echo "✖ Autofix still produced changes on retry — refusing to loop."
+      exit 1
+    fi
+
+    # Restore WIP before the replacement push so it is not left in the stash.
+    cleanup
+    trap - EXIT
+
+    echo "▶ Retrying push with autofix commit..."
+    if HUSKY_AUTOPUSH_RETRY=1 git push "$@"; then
+      echo "✔ Push succeeded after autofix commit."
+      echo "  (The error below is from the superseded original push — safe to ignore.)"
+      # Abort this push: its ref list is stale and must not be sent.
+      exit 1
+    fi
+    echo "✖ Retry push failed."
     exit 1
   fi
 fi
