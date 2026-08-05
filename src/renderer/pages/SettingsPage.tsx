@@ -44,12 +44,22 @@ export function SettingsPage({
   const [shortcutBusy, setShortcutBusy] = useState(false)
   const [shortcutError, setShortcutError] = useState<string | null>(null)
   const isMac = platform === 'darwin'
+  const [checkPending, setCheckPending] = useState(false)
   const onScrollHandledRef = useRef(onScrollHandled)
   onScrollHandledRef.current = onScrollHandled
 
   useEffect(() => {
     setDraft(config)
   }, [config])
+
+  useEffect(() => {
+    if (!updateStatus) return
+    if (updateStatus.checking) {
+      setCheckPending(true)
+      return
+    }
+    setCheckPending(false)
+  }, [updateStatus])
 
   useEffect(() => {
     if (scrollToSection !== 'updates') return
@@ -80,6 +90,22 @@ export function SettingsPage({
   )
 
   const sliderMax = Math.max(1024, totalMemoryMb - 256)
+
+  const updateChecking =
+    (checkPending || Boolean(updateStatus?.checking)) && !updateStatus?.downloading
+  const updateStatusText = useMemo(() => {
+    if (updateChecking) return t('settings.checkingUpdate')
+    if (updateStatus?.error) return updateStatus.error
+    if (!updateStatus?.info && !updateStatus?.downloading) return null
+    const parts: string[] = []
+    if (updateStatus.info?.version) parts.push(updateStatus.info.version)
+    if (updateStatus.downloading) {
+      parts.push(isMac ? t('settings.macInstalling') : `${updateStatus.progress}%`)
+    } else if (!isMac && updateStatus.downloaded) {
+      parts.push(t('settings.updateReady'))
+    }
+    return parts.join(' · ') || null
+  }, [updateChecking, updateStatus, isMac])
 
   async function save(): Promise<void> {
     if (!validation.canSave) return
@@ -504,7 +530,11 @@ export function SettingsPage({
             <button
               className="btn btn-sm"
               type="button"
-              onClick={() => void window.awesomeAPI.checkForUpdates()}
+              disabled={checkPending || Boolean(updateStatus?.checking)}
+              onClick={() => {
+                setCheckPending(true)
+                void window.awesomeAPI.checkForUpdates()
+              }}
             >
               {t('settings.checkUpdate')}
             </button>
@@ -531,16 +561,7 @@ export function SettingsPage({
               {isMac ? t('settings.installUpdateMac') : t('settings.installUpdate')}
             </button>
           </div>
-          {(updateStatus?.info || updateStatus?.error) && (
-            <div className="hint">
-              {updateStatus.info?.version || ''}
-              {updateStatus.downloading
-                ? ` · ${isMac ? t('settings.macInstalling') : `${updateStatus.progress}%`}`
-                : ''}
-              {!isMac && updateStatus.downloaded ? ' · ready' : ''}
-              {updateStatus.error ? ` · ${updateStatus.error}` : ''}
-            </div>
-          )}
+          {updateStatusText && <div className="update-status-box">{updateStatusText}</div>}
         </section>
       </div>
 

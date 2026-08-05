@@ -907,6 +907,16 @@ button.warn-box.warning:focus-visible {
   scroll-margin-top: 12px;
 }
 
+.update-status-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(7, 9, 14, 0.55);
+  color: var(--text-1);
+  font-size: 0.9rem;
+}
+
 .tabs {
   display: flex;
   gap: 8px;

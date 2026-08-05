@@ -566,9 +566,15 @@ export function App(): React.JSX.Element {
               }}
               onVerify={async (serverId) => {
                 setError(null)
+                setProgress({
+                  phase: 'validate',
+                  percent: 0,
+                  message: t('home.verifyStarting')
+                })
                 try {
                   await window.awesomeAPI.verifyInstall(serverId)
                 } catch (err) {
+                  setProgress({ phase: 'idle', percent: 0, message: '' })
                   setError(err instanceof Error ? err.message : String(err))
                 }
               }}

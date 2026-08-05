@@ -107,6 +107,8 @@ export class UpdaterService {
   }
 
   async check(): Promise<UpdateStatus> {
+    this.patch({ checking: true, error: null })
+
     if (!app.isPackaged) {
       this.patch({ checking: false, error: null })
       return this.getStatus()
