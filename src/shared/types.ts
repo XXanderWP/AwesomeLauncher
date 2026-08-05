@@ -45,6 +45,11 @@ export interface LauncherSettings {
   disableUiBlur: boolean
   /** Show Discord Rich Presence while the launcher/game is running. */
   discordRichPresence: boolean
+  /**
+   * One-time prompt: reuse files from the legacy Helios / AwesomeCraftLauncher
+   * data folder (`.helioslauncher`). Set after accept or decline.
+   */
+  legacyDataPromptSeen: boolean
 }
 
 export interface AppConfig {
@@ -232,11 +237,21 @@ export const ELYBY_DEVICE_VERIFY_URL = 'https://account.ely.by/code'
 /** Default public Ely.by OAuth client id (community launchers). */
 export const ELYBY_OAUTH_CLIENT_ID = 'ely'
 export const DEFAULT_DATA_DIR_NAME = '.awesomelauncher'
+/** Legacy AwesomeCraftLauncher / Helios default data folder name. */
+export const LEGACY_DATA_DIR_NAME = '.helioslauncher'
+
+export interface LegacyDataOffer {
+  shouldOffer: boolean
+  legacyPath: string
+}
 
 export const IPC = {
   CONFIG_GET: 'config:get',
   CONFIG_UPDATE: 'config:update',
   CONFIG_SELECT_DIR: 'config:select-directory',
+  LEGACY_DATA_OFFER: 'legacy-data:offer',
+  LEGACY_DATA_ACCEPT: 'legacy-data:accept',
+  LEGACY_DATA_DECLINE: 'legacy-data:decline',
   AUTH_LOGIN: 'auth:login',
   AUTH_DEVICE_START: 'auth:device-start',
   AUTH_DEVICE_POLL: 'auth:device-poll',

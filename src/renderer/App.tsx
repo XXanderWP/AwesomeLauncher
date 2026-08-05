@@ -23,6 +23,7 @@ import { HomePage } from './pages/HomePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { LogsPage } from './pages/LogsPage'
 import { ModDropNoticeModal, ModInstallConfirmModal } from './components/ModDropModals'
+import { LegacyDataModal } from './components/LegacyDataModal'
 import { TitleBar } from './components/TitleBar'
 
 type View = 'home' | 'settings' | 'logs'
@@ -73,6 +74,8 @@ export function App(): React.JSX.Element {
   const [splashLeaving, setSplashLeaving] = useState(false)
   const [bootMedia] = useState(() => getRandomLoadingMedia())
   const [wallpaper] = useState(() => getRandomBackgroundUrl())
+  const [legacyOfferPath, setLegacyOfferPath] = useState<string | null>(null)
+  const [legacyOfferBusy, setLegacyOfferBusy] = useState(false)
   const dragDepth = useRef(0)
 
   const shellStyle = wallpaper
@@ -121,17 +124,19 @@ export function App(): React.JSX.Element {
     let cancelled = false
     async function boot(): Promise<void> {
       try {
-        const [cfg, ver, locale, distro, gState, gLogs, uStatus, memory, plat] = await Promise.all([
-          window.awesomeAPI.getConfig(),
-          window.awesomeAPI.getVersion(),
-          window.awesomeAPI.getSystemLocale(),
-          window.awesomeAPI.refreshDistro().catch(() => window.awesomeAPI.getDistro()),
-          window.awesomeAPI.getGameState(),
-          window.awesomeAPI.getGameLogs(),
-          window.awesomeAPI.getUpdateStatus(),
-          window.awesomeAPI.getSystemMemory(),
-          window.awesomeAPI.getPlatform()
-        ])
+        const [cfg, ver, locale, distro, gState, gLogs, uStatus, memory, plat, legacyOffer] =
+          await Promise.all([
+            window.awesomeAPI.getConfig(),
+            window.awesomeAPI.getVersion(),
+            window.awesomeAPI.getSystemLocale(),
+            window.awesomeAPI.refreshDistro().catch(() => window.awesomeAPI.getDistro()),
+            window.awesomeAPI.getGameState(),
+            window.awesomeAPI.getGameLogs(),
+            window.awesomeAPI.getUpdateStatus(),
+            window.awesomeAPI.getSystemMemory(),
+            window.awesomeAPI.getPlatform(),
+            window.awesomeAPI.getLegacyDataOffer()
+          ])
         if (cancelled) return
         const lang = resolveLanguage(cfg.settings.launcher.language, locale)
         setLanguage(lang)
@@ -143,6 +148,9 @@ export function App(): React.JSX.Element {
         setUpdateStatus(uStatus)
         setTotalMemoryMb(memory.totalMb)
         setPlatform(plat)
+        if (legacyOffer.shouldOffer) {
+          setLegacyOfferPath(legacyOffer.legacyPath)
+        }
         setLangTick((x) => x + 1)
         setReady(true)
 
@@ -181,6 +189,44 @@ export function App(): React.JSX.Element {
 
   const statusesRef = useRef(statuses)
   statusesRef.current = statuses
+
+  async function acceptLegacyData(): Promise<void> {
+    if (legacyOfferBusy) return
+    setLegacyOfferBusy(true)
+    try {
+      const next = await window.awesomeAPI.acceptLegacyDataDirectory()
+      setConfig(next)
+      setLegacyOfferPath(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLegacyOfferBusy(false)
+    }
+  }
+
+  async function declineLegacyData(): Promise<void> {
+    if (legacyOfferBusy) return
+    setLegacyOfferBusy(true)
+    try {
+      const next = await window.awesomeAPI.declineLegacyDataDirectory()
+      setConfig(next)
+      setLegacyOfferPath(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLegacyOfferBusy(false)
+    }
+  }
+
+  const legacyDataModal =
+    legacyOfferPath && !showSplash ? (
+      <LegacyDataModal
+        legacyPath={legacyOfferPath}
+        busy={legacyOfferBusy}
+        onAccept={() => void acceptLegacyData()}
+        onDecline={() => void declineLegacyData()}
+      />
+    ) : null
 
   useEffect(() => {
     if (!servers.length) return
@@ -446,6 +492,7 @@ export function App(): React.JSX.Element {
             />
           </main>
         </div>
+        {legacyDataModal}
         {splashOverlay}
       </div>
     )
@@ -603,6 +650,8 @@ export function App(): React.JSX.Element {
             onConfirm={() => void confirmInstall()}
           />
         ) : null}
+
+        {legacyDataModal}
 
         {/* Keep register URL referenced for tooling */}
         <span hidden>{ELYBY_REGISTER_URL}</span>

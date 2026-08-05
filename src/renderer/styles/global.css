@@ -1432,6 +1432,18 @@ button.online-player-meta-link:focus-visible {
   font-size: 0.85rem;
 }
 
+.mono-path {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  word-break: break-all;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-1);
+}
+
 .progress {
   margin-top: 16px;
 }

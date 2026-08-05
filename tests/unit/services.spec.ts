@@ -18,9 +18,19 @@ import {
   instancesDirectory,
   instanceDirectory,
   javaDirectory,
-  defaultDataDirectory
+  defaultDataDirectory,
+  legacyDefaultDataDirectory
 } from '../../src/main/utils/paths'
-import { DISTRO_URL, ELYBY_AUTH_URL, DEFAULT_DATA_DIR_NAME } from '../../src/shared/types'
+import {
+  DISTRO_URL,
+  ELYBY_AUTH_URL,
+  DEFAULT_DATA_DIR_NAME,
+  LEGACY_DATA_DIR_NAME
+} from '../../src/shared/types'
+import {
+  dataDirectoryHasGameFiles,
+  evaluateLegacyDataOffer
+} from '../../src/main/services/config/legacyData'
 import {
   extractMotdText,
   resolveServerDisplayName,
@@ -68,6 +78,7 @@ describe('ConfigService', () => {
     expect(cfg.clientToken).toHaveLength(32)
     expect(cfg.settings.launcher.preservePlayerConfigs).toBe(true)
     expect(cfg.settings.launcher.discordRichPresence).toBe(true)
+    expect(cfg.settings.launcher.legacyDataPromptSeen).toBe(false)
     expect(cfg.settings.launcher.language).toBe('system')
     expect(cfg.javaDefaults.maxRamMb).toBeGreaterThan(0)
     expect(cfg.javaDefaults.jvmOptions).toEqual(getDefaultJvmOptions())
@@ -523,6 +534,10 @@ describe('launchEnv', () => {
     expect(env.LD_LIBRARY_PATH).toBeUndefined()
     expect(env.PATH).toBe('/usr/local/bin:/usr/bin:/bin')
     expect(env.PATH).not.toContain('.mount_')
+    // isNvidiaLinux() is host-dependent; when true the explicit-sync workaround is set.
+    if (env.__GLX_VENDOR_LIBRARY_NAME === 'nvidia') {
+      expect(env.__NV_DISABLE_EXPLICIT_SYNC).toBe('1')
+    }
   })
 
   it('uses the same fixed PATH for AppImage-like and npm-like host PATH', () => {
@@ -702,15 +717,78 @@ describe('path helpers and constants', () => {
     )
     expect(javaDirectory('/data')).toBe(path.join('/data', 'java'))
     expect(DEFAULT_DATA_DIR_NAME).toBe('.awesomelauncher')
+    expect(LEGACY_DATA_DIR_NAME).toBe('.helioslauncher')
     expect(defaultDataDirectory()).toContain(DEFAULT_DATA_DIR_NAME)
     expect(defaultDataDirectory()).not.toContain('helioslauncher')
     expect(defaultDataDirectory()).not.toContain('awesomecraftlauncher')
+    expect(legacyDefaultDataDirectory()).toContain(LEGACY_DATA_DIR_NAME)
+    expect(legacyDefaultDataDirectory()).not.toContain(DEFAULT_DATA_DIR_NAME)
   })
 
   it('exposes remote constants', () => {
     expect(DISTRO_URL).toContain('distribution.json')
     expect(ELYBY_AUTH_URL).toContain('ely.by')
     expect(getSupportedLanguages()).toEqual(['en', 'ru', 'uk'])
+  })
+})
+
+describe('legacy data offer', () => {
+  it('detects game files and empty folders', async () => {
+    const emptyDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-empty-'))
+    const fullDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-full-'))
+    await fs.ensureDir(path.join(fullDir, 'common', 'libraries', 'net'))
+    await fs.writeFile(path.join(fullDir, 'common', 'libraries', 'net', 'x.jar'), 'x')
+
+    expect(await dataDirectoryHasGameFiles(emptyDir)).toBe(false)
+    expect(await dataDirectoryHasGameFiles(path.join(emptyDir, 'missing'))).toBe(false)
+    expect(await dataDirectoryHasGameFiles(fullDir)).toBe(true)
+
+    await fs.remove(emptyDir)
+    await fs.remove(fullDir)
+  })
+
+  it('offers only when current is empty, legacy has data, and prompt unseen', async () => {
+    const current = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-cur-'))
+    const legacy = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-leg-'))
+    await fs.ensureDir(path.join(legacy, 'instances', 'Prominence'))
+    await fs.writeFile(path.join(legacy, 'instances', 'Prominence', 'options.txt'), 'x')
+
+    await expect(
+      evaluateLegacyDataOffer({
+        currentDataDirectory: current,
+        legacyDataPromptSeen: false,
+        legacyPath: legacy
+      })
+    ).resolves.toEqual({ shouldOffer: true, legacyPath: legacy })
+
+    await expect(
+      evaluateLegacyDataOffer({
+        currentDataDirectory: current,
+        legacyDataPromptSeen: true,
+        legacyPath: legacy
+      })
+    ).resolves.toEqual({ shouldOffer: false, legacyPath: legacy })
+
+    await expect(
+      evaluateLegacyDataOffer({
+        currentDataDirectory: legacy,
+        legacyDataPromptSeen: false,
+        legacyPath: legacy
+      })
+    ).resolves.toEqual({ shouldOffer: false, legacyPath: legacy })
+
+    await fs.ensureDir(path.join(current, 'sync-index'))
+    await fs.writeJson(path.join(current, 'sync-index', 'Prominence.json'), { paths: [] })
+    await expect(
+      evaluateLegacyDataOffer({
+        currentDataDirectory: current,
+        legacyDataPromptSeen: false,
+        legacyPath: legacy
+      })
+    ).resolves.toEqual({ shouldOffer: false, legacyPath: legacy })
+
+    await fs.remove(current)
+    await fs.remove(legacy)
   })
 })
 

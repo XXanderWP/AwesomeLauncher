@@ -1,6 +1,6 @@
 import os from 'os'
 import path from 'path'
-import { DEFAULT_DATA_DIR_NAME } from '../../shared/types'
+import { DEFAULT_DATA_DIR_NAME, LEGACY_DATA_DIR_NAME } from '../../shared/types'
 
 /**
  * Default game data directory:
@@ -13,6 +13,23 @@ export function defaultDataDirectory(): string {
     return path.join(root, DEFAULT_DATA_DIR_NAME)
   }
   return path.join(os.homedir(), DEFAULT_DATA_DIR_NAME)
+}
+
+/**
+ * Legacy AwesomeCraftLauncher (Helios fork) default data directory:
+ * - Windows: %APPDATA%\.helioslauncher
+ * - macOS: ~/Library/Application Support/.helioslauncher
+ * - Linux: ~/.helioslauncher
+ *
+ * Matches `configmanager.js` in XXanderWP/AwesomeCraftLauncher.
+ */
+export function legacyDefaultDataDirectory(): string {
+  const sysRoot =
+    process.env.APPDATA ||
+    (process.platform === 'darwin'
+      ? path.join(os.homedir(), 'Library', 'Application Support')
+      : os.homedir())
+  return path.join(sysRoot, LEGACY_DATA_DIR_NAME)
 }
 
 export function commonDirectory(dataDirectory: string): string {

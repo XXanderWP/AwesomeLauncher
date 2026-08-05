@@ -24,6 +24,12 @@ Default `dataDirectory`:
 - Linux / macOS: `~/.awesomelauncher`
 - Windows: `%APPDATA%\.awesomelauncher`
 
+Legacy AwesomeCraftLauncher (Helios) default (one-time reuse offer when new dir is empty):
+
+- Linux: `~/.helioslauncher`
+- Windows: `%APPDATA%\.helioslauncher`
+- macOS: `~/Library/Application Support/.helioslauncher`
+
 ```
 {dataDirectory}/
   common/        # libraries, assets, versions, mod store

@@ -35,7 +35,8 @@ import {
 import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
 import { bytesToMb } from '../shared/ramValidation'
-import { instanceDirectory } from './utils/paths'
+import { instanceDirectory, legacyDefaultDataDirectory } from './utils/paths'
+import { evaluateLegacyDataOffer } from './services/config/legacyData'
 import { PROTOCOL_SCHEME, findProtocolUrlInArgv, parseLaunchProtocolUrl } from '../shared/protocol'
 
 // Strip Cursor / foreign AppImage LD_LIBRARY_PATH from the host before any spawn.
@@ -50,6 +51,27 @@ if (hostEnvSanitized.changed) {
     `[Launcher] Sanitized host LD_LIBRARY_PATH=${hostEnvSanitized.ldLibraryPath || '(cleared)'}`
   )
 }
+
+/**
+ * Packaged Electron (AppImage) loads Chromium GL against bundled libs while
+ * Minecraft uses system NVIDIA GLX. Sharing the driver between those stacks
+ * SIGSEGVs in glfwWaitEventsTimeout even with a clean JVM env + glxinfo warm-up.
+ * Disable Electron GPU before ready so only Minecraft touches NVIDIA.
+ */
+function configureLinuxPackagedGpuIsolation(): void {
+  if (process.platform !== 'linux') return
+  const packaged = Boolean(process.env.APPIMAGE) || app.isPackaged
+  if (!packaged) return
+
+  app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+  app.commandLine.appendSwitch('ozone-platform', 'x11')
+  console.log(
+    '[Launcher] Packaged Linux: Electron GPU disabled (protect Minecraft NVIDIA/GLX)'
+  )
+}
+configureLinuxPackagedGpuIsolation()
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
@@ -217,6 +239,33 @@ function registerIpc(): void {
     }
     return configService.update({
       settings: { launcher: { dataDirectory: result.filePaths[0] } }
+    } as any)
+  })
+
+  ipcMain.handle(IPC.LEGACY_DATA_OFFER, async () => {
+    const cfg = configService.get()
+    return evaluateLegacyDataOffer({
+      currentDataDirectory: cfg.settings.launcher.dataDirectory,
+      legacyDataPromptSeen: cfg.settings.launcher.legacyDataPromptSeen === true
+    })
+  })
+  ipcMain.handle(IPC.LEGACY_DATA_ACCEPT, async () => {
+    const legacyPath = legacyDefaultDataDirectory()
+    await fs.ensureDir(legacyPath)
+    const next = await configService.update({
+      settings: {
+        launcher: {
+          dataDirectory: legacyPath,
+          legacyDataPromptSeen: true
+        }
+      }
+    } as any)
+    distroService.invalidate()
+    return next
+  })
+  ipcMain.handle(IPC.LEGACY_DATA_DECLINE, async () => {
+    return configService.update({
+      settings: { launcher: { legacyDataPromptSeen: true } }
     } as any)
   })
 

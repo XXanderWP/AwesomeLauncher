@@ -187,7 +187,12 @@ const translations = {
     'common.loading': 'Loading…',
     'common.ok': 'OK',
     'common.error': 'Error',
-    'common.version': 'Version {0}'
+    'common.version': 'Version {0}',
+    'legacyData.title': 'Use previous launcher files?',
+    'legacyData.body':
+      'No game files were found for this launcher yet, but an older AwesomeCraftLauncher data folder is available. Reuse it to keep worlds, configs, and downloads without re-downloading.',
+    'legacyData.accept': 'Use old folder',
+    'legacyData.decline': 'Start fresh'
   },
   ru: {
     'app.name': 'AwesomeCraft',
@@ -375,7 +380,12 @@ const translations = {
     'common.loading': 'Загрузка…',
     'common.ok': 'ОК',
     'common.error': 'Ошибка',
-    'common.version': 'Версия {0}'
+    'common.version': 'Версия {0}',
+    'legacyData.title': 'Использовать файлы старого лаунчера?',
+    'legacyData.body':
+      'У этого лаунчера ещё нет скачанных данных, но найдена папка предыдущего AwesomeCraftLauncher. Можно подключить её, чтобы сохранить миры, настройки и уже скачанные файлы.',
+    'legacyData.accept': 'Использовать старую папку',
+    'legacyData.decline': 'Начать заново'
   },
   uk: {
     'app.name': 'AwesomeCraft',
@@ -563,7 +573,12 @@ const translations = {
     'common.loading': 'Завантаження…',
     'common.ok': 'ОК',
     'common.error': 'Помилка',
-    'common.version': 'Версія {0}'
+    'common.version': 'Версія {0}',
+    'legacyData.title': 'Використати файли старого лаунчера?',
+    'legacyData.body':
+      'У цього лаунчера ще немає завантажених даних, але знайдено папку попереднього AwesomeCraftLauncher. Можна підключити її, щоб зберегти світи, налаштування та вже завантажені файли.',
+    'legacyData.accept': 'Використати стару папку',
+    'legacyData.decline': 'Почати спочатку'
   }
 } as const
 

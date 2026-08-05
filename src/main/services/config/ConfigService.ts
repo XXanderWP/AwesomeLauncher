@@ -12,7 +12,7 @@ import { getDefaultJvmOptions } from '../../../shared/javaDefaults'
 import { createClientToken } from '../auth/elybyAuth'
 import { defaultDataDirectory } from '../../utils/paths'
 
-const CONFIG_VERSION = 3
+const CONFIG_VERSION = 4
 
 export function buildDefaultJavaSettings(
   defaults?: Partial<JavaServerSettings>
@@ -48,7 +48,8 @@ function buildDefaultConfig(): AppConfig {
         preservePlayerConfigs: true,
         skipLoadingGifs: false,
         disableUiBlur: false,
-        discordRichPresence: true
+        discordRichPresence: true,
+        legacyDataPromptSeen: false
       }
     },
     javaDefaults: buildDefaultJavaSettings(),
@@ -217,6 +218,9 @@ export class ConfigService {
     }
     if (typeof merged.settings?.launcher?.discordRichPresence !== 'boolean') {
       merged.settings.launcher.discordRichPresence = true
+    }
+    if (typeof merged.settings?.launcher?.legacyDataPromptSeen !== 'boolean') {
+      merged.settings.launcher.legacyDataPromptSeen = false
     }
     return merged
   }

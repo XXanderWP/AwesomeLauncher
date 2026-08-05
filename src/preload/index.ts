@@ -5,6 +5,7 @@ import type {
   DistroServerSummary,
   GameLogLine,
   GameProcessState,
+  LegacyDataOffer,
   ModInfo,
   ModPreview,
   ElybyPublicProfile,
@@ -50,6 +51,10 @@ const api = {
   updateConfig: (partial: DeepPartial<AppConfig>): Promise<AppConfig> =>
     ipcRenderer.invoke(IPC.CONFIG_UPDATE, partial),
   selectDataDirectory: (): Promise<AppConfig> => ipcRenderer.invoke(IPC.CONFIG_SELECT_DIR),
+  getLegacyDataOffer: (): Promise<LegacyDataOffer> => ipcRenderer.invoke(IPC.LEGACY_DATA_OFFER),
+  acceptLegacyDataDirectory: (): Promise<AppConfig> => ipcRenderer.invoke(IPC.LEGACY_DATA_ACCEPT),
+  declineLegacyDataDirectory: (): Promise<AppConfig> =>
+    ipcRenderer.invoke(IPC.LEGACY_DATA_DECLINE),
 
   login: (username: string, password: string, totp?: string): Promise<AppConfig> =>
     ipcRenderer.invoke(IPC.AUTH_LOGIN, { username, password, totp }),
