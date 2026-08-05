@@ -67,9 +67,7 @@ function configureLinuxPackagedGpuIsolation(): void {
   app.commandLine.appendSwitch('disable-gpu')
   app.commandLine.appendSwitch('disable-gpu-compositing')
   app.commandLine.appendSwitch('ozone-platform', 'x11')
-  console.log(
-    '[Launcher] Packaged Linux: Electron GPU disabled (protect Minecraft NVIDIA/GLX)'
-  )
+  console.log('[Launcher] Packaged Linux: Electron GPU disabled (protect Minecraft NVIDIA/GLX)')
 }
 configureLinuxPackagedGpuIsolation()
 
