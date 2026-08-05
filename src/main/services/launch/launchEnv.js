@@ -231,6 +231,8 @@ function buildLinuxMinecraftEnv(baseEnv) {
     if (fileExists(nvidiaEglIcd)) {
       env.__EGL_VENDOR_LIBRARY_FILENAMES = nvidiaEglIcd
     }
+    // NVIDIA 555+ XWayland explicit sync has caused GLFW/GLX crashes; Prism-era workaround.
+    env.__NV_DISABLE_EXPLICIT_SYNC = '1'
   }
 
   return env

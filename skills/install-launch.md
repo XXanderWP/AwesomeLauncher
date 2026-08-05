@@ -62,19 +62,21 @@ clone). Clearing `LD_LIBRARY_PATH` alone is not enough for AppImage builds —
    AppImage / `node_modules` PATH. Host PATH differences are not what makes
    `npm run start` more reliable than AppImage.
 5. Before spawn, run a short **system GLX warm-up** (`glxinfo -B`, else
-   `nvidia-smi -L`) under the same clean `env -i` environment. Cold boot +
-   AppImage Electron (bundled libs) can leave NVIDIA/XWayland unready; the
-   first Minecraft launch then `SIGSEGV` in `glfwWaitEventsTimeout`. A prior
-   successful `npm` launch appears to “fix” AppImage for the same reason
-   (GPU already warmed), not because of PATH.
+   `nvidia-smi -L`) under the same clean `env -i` environment.
+6. On **packaged Linux (AppImage)**, disable Electron hardware acceleration /
+   GPU (`app.disableHardwareAcceleration`, `--disable-gpu`,
+   `--ozone-platform=x11`) **before** `app.ready`. AppImage Chromium otherwise
+   opens NVIDIA with bundled libs while Minecraft uses system GLX; they fight
+   in the driver and `glfwWaitEventsTimeout` SIGSEGVs even when warm-up
+   succeeds. `npm run start` survives because unpackaged Electron uses system
+   GL libs (compatible with the JVM).
+7. On NVIDIA, set `__NV_DISABLE_EXPLICIT_SYNC=1` for the JVM (XWayland 555+).
 
 Host sanitizer only removes *foreign* mounts from the Electron process itself
 (keeps this app’s `APPDIR` so packaged Electron helpers keep working).
 
-Without the whitelist, AppImage launches still `SIGSEGV` in
-`glfwWaitEventsTimeout` after the title screen even with `LD_LIBRARY_PATH`
-cleared; `npm run start` often survives because it has no AppImage mount vars
-*and* uses system OpenGL in the Electron parent (which also warms the driver).
+Without the whitelist + packaged GPU isolation, AppImage launches still
+`SIGSEGV` in `glfwWaitEventsTimeout` after the title screen.
 
 Default JVM options match Helios Java 17 (short G1 set), not Aikar server flags.
 Existing `config.json` `jvmOptions` are kept until the user resets them — GC flags

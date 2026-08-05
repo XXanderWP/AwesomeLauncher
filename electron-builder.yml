@@ -96,6 +96,10 @@ linux:
   description: Custom launcher for AwesomeCraft Minecraft servers.
   icon: build/icon.png
   maintainer: AwesomeCraft
+  # Keep Electron off the NVIDIA GLX path so the Minecraft JVM is the only GL client.
+  executableArgs:
+    - --disable-gpu
+    - --ozone-platform=x11
 
 # zstd mounts much faster than xz/maximum; keeps a single portable AppImage for all distros.
 appImage:

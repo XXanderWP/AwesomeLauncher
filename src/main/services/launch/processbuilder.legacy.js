@@ -168,6 +168,7 @@ class ProcessBuilder {
           '__GL_THREADED_OPTIMIZATIONS',
           '__GLX_VENDOR_LIBRARY_NAME',
           '__EGL_VENDOR_LIBRARY_FILENAMES',
+          '__NV_DISABLE_EXPLICIT_SYNC',
           'PATH'
         ]
         const lines = keys.map((k) => `${k}=${launchEnv[k] ?? ''}`)
