@@ -261,16 +261,12 @@ function warmLinuxGraphics(env = {}, platform = process.platform) {
   for (const [command, args] of probes) {
     if (!fileExists(command)) continue
     try {
-      const result = child_process.spawnSync(
-        '/usr/bin/env',
-        ['-i', ...pairs, command, ...args],
-        {
-          encoding: 'utf8',
-          timeout: 10000,
-          env: { PATH: '/usr/bin:/bin' },
-          stdio: ['ignore', 'pipe', 'pipe']
-        }
-      )
+      const result = child_process.spawnSync('/usr/bin/env', ['-i', ...pairs, command, ...args], {
+        encoding: 'utf8',
+        timeout: 10000,
+        env: { PATH: '/usr/bin:/bin' },
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
       const ok = result.status === 0 && !result.error
       return {
         attempted: true,

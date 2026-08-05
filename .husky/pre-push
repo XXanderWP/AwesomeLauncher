@@ -2,4 +2,36 @@
 set -e
 
 echo "▶ Running CI checks before push (format, lint, typecheck, test)..."
-npm run check
+
+autofixed=0
+
+run_with_autofix() {
+  check_script="$1"
+  fix_script="$2"
+  label="$3"
+
+  if npm run "$check_script"; then
+    return 0
+  fi
+
+  echo "▶ $label failed — attempting auto-fix..."
+  npm run "$fix_script"
+  autofixed=1
+  echo "▶ Re-checking $label..."
+  npm run "$check_script"
+}
+
+run_with_autofix format:check format "Format"
+run_with_autofix lint lint:fix "Lint"
+
+if [ "$autofixed" -eq 1 ]; then
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo ""
+    echo "✖ Auto-fix updated files. Commit the changes and push again:"
+    git status --short
+    exit 1
+  fi
+fi
+
+npm run typecheck
+npm test

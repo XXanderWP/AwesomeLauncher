@@ -8,7 +8,11 @@ const os = require('os')
 const path = require('path')
 
 const { LegacyConfigBridge: ConfigManager, getAuthlibInjectorJarPath } = require('./launchBridge')
-const { buildMinecraftProcessEnv, spawnMinecraftProcess, warmLinuxGraphics } = require('./launchEnv')
+const {
+  buildMinecraftProcessEnv,
+  spawnMinecraftProcess,
+  warmLinuxGraphics
+} = require('./launchEnv')
 const ElybyPaths = {
   getAuthlibInjectorJarPath,
   isAuthlibInjectorAvailable: () => require('fs-extra').pathExistsSync(getAuthlibInjectorJarPath())
