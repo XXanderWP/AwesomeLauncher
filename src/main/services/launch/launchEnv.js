@@ -11,13 +11,11 @@
  * is not enough: we whitelist env and spawn through `/usr/bin/env -i` so the
  * JVM never inherits AppImage linker state.
  *
- * Cold boot / first AppImage launch after reboot can still SIGSEGV in
- * glfwWaitEventsTimeout even with a clean JVM env: the NVIDIA GLX stack has
- * not been touched by a *system* OpenGL client yet (AppImage Electron uses
- * bundled libs). A short GLX probe with the same clean env warms XWayland +
- * the driver — the same effect users see after a successful `npm run start`.
- * Host PATH differences (nvm vs AppImage) are not the fix; Minecraft gets a
- * fixed system PATH.
+ * Cold boot / first AppImage launch can still SIGSEGV in glfwWaitEventsTimeout
+ * even with a clean JVM env + glxinfo: NVIDIA GLX needs a real present path
+ * (window + swap), not just a context query. We warm with glxgears under the
+ * same clean env, then fall back to glxinfo / nvidia-smi. Host PATH differences
+ * (nvm vs AppImage) are not the fix; Minecraft gets a fixed system PATH.
  */
 
 const child_process = require('child_process')
@@ -233,6 +231,8 @@ function buildLinuxMinecraftEnv(baseEnv) {
     }
     // NVIDIA 555+ XWayland explicit sync has caused GLFW/GLX crashes; Prism-era workaround.
     env.__NV_DISABLE_EXPLICIT_SYNC = '1'
+    // Avoid driver vsync path that trips glfwWaitEventsTimeout on cold XWayland.
+    env.__GL_SYNC_TO_VBLANK = '0'
   }
 
   return env
@@ -246,49 +246,80 @@ function envPairsForSpawn(env) {
 
 /**
  * Touch system GLX / NVIDIA with the same clean env Minecraft will use.
- * Avoids cold-boot AppImage-only SIGSEGV in glfwWaitEventsTimeout when the
- * only prior GPU clients were Electron's AppImage-bundled libraries.
+ * glxinfo alone is not enough: cold GLFW still SIGSEGVs in glfwWaitEventsTimeout
+ * until something has presented frames on XWayland. Prefer a short glxgears run.
  */
 function warmLinuxGraphics(env = {}, platform = process.platform) {
   if (platform !== 'linux' || !env.DISPLAY) {
-    return { attempted: false, ok: false, command: null, status: null }
+    return { attempted: false, ok: false, command: null, status: null, timedOut: false }
   }
 
   const probes = [
-    ['/usr/bin/glxinfo', ['-B']],
-    ['/usr/bin/nvidia-smi', ['-L']]
+    // Present path: timeout = success (gears ran and swapped buffers).
+    { command: '/usr/bin/glxgears', args: [], timeoutMs: 1800, acceptTimeout: true },
+    { command: '/usr/bin/glxinfo', args: ['-B'], timeoutMs: 10000, acceptTimeout: false },
+    { command: '/usr/bin/nvidia-smi', args: ['-L'], timeoutMs: 10000, acceptTimeout: false }
   ]
 
   const pairs = envPairsForSpawn(env)
-  for (const [command, args] of probes) {
-    if (!fileExists(command)) continue
+  let lastFailure = null
+
+  for (const probe of probes) {
+    if (!fileExists(probe.command)) continue
     try {
-      const result = child_process.spawnSync('/usr/bin/env', ['-i', ...pairs, command, ...args], {
-        encoding: 'utf8',
-        timeout: 10000,
-        env: { PATH: '/usr/bin:/bin' },
-        stdio: ['ignore', 'pipe', 'pipe']
-      })
-      const ok = result.status === 0 && !result.error
-      return {
+      const result = child_process.spawnSync(
+        '/usr/bin/env',
+        ['-i', ...pairs, probe.command, ...probe.args],
+        {
+          encoding: 'utf8',
+          timeout: probe.timeoutMs,
+          killSignal: 'SIGTERM',
+          env: { PATH: '/usr/bin:/bin' },
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
+      const timedOut = Boolean(
+        result.error &&
+        (result.error.code === 'ETIMEDOUT' || /ETIMEDOUT/i.test(String(result.error)))
+      )
+      const ok = probe.acceptTimeout
+        ? timedOut || result.status === 0
+        : result.status === 0 && !result.error
+
+      if (ok) {
+        return {
+          attempted: true,
+          ok: true,
+          command: probe.command,
+          status: result.status,
+          timedOut,
+          error: null
+        }
+      }
+
+      lastFailure = {
         attempted: true,
-        ok,
-        command,
+        ok: false,
+        command: probe.command,
         status: result.status,
+        timedOut,
         error: result.error ? String(result.error.message || result.error) : null
       }
     } catch (err) {
-      return {
+      lastFailure = {
         attempted: true,
         ok: false,
-        command,
+        command: probe.command,
         status: null,
+        timedOut: false,
         error: String(err && err.message ? err.message : err)
       }
     }
   }
 
-  return { attempted: false, ok: false, command: null, status: null }
+  return (
+    lastFailure || { attempted: false, ok: false, command: null, status: null, timedOut: false }
+  )
 }
 
 function buildMinecraftProcessEnv(baseEnv = process.env, platform = process.platform) {

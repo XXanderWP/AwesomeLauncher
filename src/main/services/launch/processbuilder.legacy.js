@@ -169,6 +169,7 @@ class ProcessBuilder {
           '__GLX_VENDOR_LIBRARY_NAME',
           '__EGL_VENDOR_LIBRARY_FILENAMES',
           '__NV_DISABLE_EXPLICIT_SYNC',
+          '__GL_SYNC_TO_VBLANK',
           'PATH'
         ]
         const lines = keys.map((k) => `${k}=${launchEnv[k] ?? ''}`)
@@ -176,6 +177,7 @@ class ProcessBuilder {
         lines.push(`warm.ok=${warm.ok}`)
         lines.push(`warm.command=${warm.command ?? ''}`)
         lines.push(`warm.status=${warm.status ?? ''}`)
+        lines.push(`warm.timedOut=${warm.timedOut ?? false}`)
         if (warm.error) lines.push(`warm.error=${warm.error}`)
         fs.writeFileSync(path.join(this.gameDir, '.launcher-env.log'), lines.join('\n') + '\n')
       } catch (err) {

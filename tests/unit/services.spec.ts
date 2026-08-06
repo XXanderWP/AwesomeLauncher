@@ -537,6 +537,7 @@ describe('launchEnv', () => {
     // isNvidiaLinux() is host-dependent; when true the explicit-sync workaround is set.
     if (env.__GLX_VENDOR_LIBRARY_NAME === 'nvidia') {
       expect(env.__NV_DISABLE_EXPLICIT_SYNC).toBe('1')
+      expect(env.__GL_SYNC_TO_VBLANK).toBe('0')
     }
   })
 
@@ -564,6 +565,29 @@ describe('launchEnv', () => {
   it('skips GL warm-up when DISPLAY is missing', () => {
     const warm = warmLinuxGraphics({ PATH: '/usr/bin:/bin' }, 'linux')
     expect(warm.attempted).toBe(false)
+  })
+
+  it('prefers glxgears present warm-up when DISPLAY is set', () => {
+    if (process.platform !== 'linux' || !process.env.DISPLAY) {
+      return
+    }
+    if (!fs.existsSync('/usr/bin/glxgears')) {
+      return
+    }
+    const warm = warmLinuxGraphics(
+      {
+        DISPLAY: process.env.DISPLAY,
+        PATH: '/usr/bin:/bin',
+        XAUTHORITY: process.env.XAUTHORITY,
+        XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR,
+        HOME: process.env.HOME
+      },
+      'linux'
+    )
+    expect(warm.attempted).toBe(true)
+    expect(warm.ok).toBe(true)
+    expect(warm.command).toBe('/usr/bin/glxgears')
+    expect(warm.timedOut).toBe(true)
   })
 
   it('resolves XAUTHORITY from XDG_RUNTIME_DIR xauth cookie on Wayland', () => {

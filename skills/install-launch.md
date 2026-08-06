@@ -61,8 +61,10 @@ clone). Clearing `LD_LIBRARY_PATH` alone is not enough for AppImage builds —
    child `PATH` (`/usr/local/bin:/usr/bin:/bin`) — do not inherit nvm /
    AppImage / `node_modules` PATH. Host PATH differences are not what makes
    `npm run start` more reliable than AppImage.
-5. Before spawn, run a short **system GLX warm-up** (`glxinfo -B`, else
-   `nvidia-smi -L`) under the same clean `env -i` environment.
+5. Before spawn (and once at AppImage startup), run a **system GLX present warm-up**:
+   prefer `glxgears` for ~1.8s under the same clean `env -i` (timeout = success),
+   else `glxinfo -B`, else `nvidia-smi -L`. Context-only probes are not enough for
+   cold `glfwWaitEventsTimeout`.
 6. On **packaged Linux (AppImage)**, disable Electron hardware acceleration /
    GPU (`app.disableHardwareAcceleration`, `--disable-gpu`,
    `--ozone-platform=x11`) **before** `app.ready`. AppImage Chromium otherwise
@@ -70,7 +72,11 @@ clone). Clearing `LD_LIBRARY_PATH` alone is not enough for AppImage builds —
    in the driver and `glfwWaitEventsTimeout` SIGSEGVs even when warm-up
    succeeds. `npm run start` survives because unpackaged Electron uses system
    GL libs (compatible with the JVM).
-7. On NVIDIA, set `__NV_DISABLE_EXPLICIT_SYNC=1` for the JVM (XWayland 555+).
+7. On NVIDIA, set `__NV_DISABLE_EXPLICIT_SYNC=1` and `__GL_SYNC_TO_VBLANK=0` for
+   the JVM (XWayland 555+ / cold present path).
+8. If Minecraft still dies early with `SIGABRT`/`SIGSEGV` (typical ~50–90s into
+   Prominence load), **retry launch once** automatically — the second present in
+   the same session usually succeeds.
 
 Host sanitizer only removes *foreign* mounts from the Electron process itself
 (keeps this app’s `APPDIR` so packaged Electron helpers keep working).

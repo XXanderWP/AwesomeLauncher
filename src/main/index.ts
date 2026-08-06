@@ -42,8 +42,18 @@ import { PROTOCOL_SCHEME, findProtocolUrlInArgv, parseLaunchProtocolUrl } from '
 // Strip Cursor / foreign AppImage LD_LIBRARY_PATH from the host before any spawn.
 // Runtime file lives in out/launch/ (copied by copy-launch-assets), next to out/main/.
 const requireLaunch = createRequire(__filename)
-const { sanitizeLauncherProcessEnv } = requireLaunch(join(__dirname, '../launch/launchEnv.js')) as {
+const { sanitizeLauncherProcessEnv, buildMinecraftProcessEnv, warmLinuxGraphics } = requireLaunch(
+  join(__dirname, '../launch/launchEnv.js')
+) as {
   sanitizeLauncherProcessEnv: () => { changed: boolean; ldLibraryPath: string | null }
+  buildMinecraftProcessEnv: () => Record<string, string>
+  warmLinuxGraphics: (env: Record<string, string>) => {
+    attempted: boolean
+    ok: boolean
+    command: string | null
+    status: number | null
+    timedOut?: boolean
+  }
 }
 const hostEnvSanitized = sanitizeLauncherProcessEnv()
 if (hostEnvSanitized.changed) {
@@ -552,6 +562,21 @@ app.whenReady().then(async () => {
   discordPresence.start()
   servicesReady = true
   void flushPendingProtocolUrl()
+
+  // Warm system GLX/XWayland early so the first Minecraft present is less cold.
+  if (process.platform === 'linux' && (process.env.APPIMAGE || app.isPackaged)) {
+    setImmediate(() => {
+      try {
+        const env = buildMinecraftProcessEnv()
+        const warm = warmLinuxGraphics(env)
+        console.log(
+          `[Launcher] Startup GL warm: attempted=${warm.attempted} ok=${warm.ok} command=${warm.command || '-'} timedOut=${warm.timedOut ?? false}`
+        )
+      } catch (err) {
+        console.warn('[Launcher] Startup GL warm failed:', err)
+      }
+    })
+  }
 
   // Enrich elyId in the background — never block first paint on network.
   const selected = configService.getSelectedAccount()

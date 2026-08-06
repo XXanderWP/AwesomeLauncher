@@ -27,6 +27,10 @@ export class GameService {
   private logs: GameLogLine[] = []
   private readonly maxLogs = 5000
   private readonly stateListeners = new Set<(state: GameProcessState) => void>()
+  /** User clicked Stop — do not auto-retry after SIGABRT. */
+  private stopRequested = false
+  /** One automatic relaunch after early NVIDIA/GLFW SIGSEGV (AppImage cold present). */
+  private linuxGlRetryUsed = false
 
   constructor(
     private readonly config: ConfigService,
@@ -53,9 +57,17 @@ export class GameService {
     this.logs = []
   }
 
-  async launch(serverId: string): Promise<GameProcessState> {
+  async launch(
+    serverId: string,
+    options: { isLinuxGlRetry?: boolean } = {}
+  ): Promise<GameProcessState> {
     if (this.state.running) {
       throw new Error('Game is already running')
+    }
+
+    if (!options.isLinuxGlRetry) {
+      this.stopRequested = false
+      this.linuxGlRetryUsed = false
     }
 
     const selected = this.config.getSelectedAccount()
@@ -68,7 +80,9 @@ export class GameService {
       throw new Error('authlib-injector.jar is missing from launcher resources')
     }
 
-    this.emitProgressLaunch('Refreshing Ely.by session')
+    this.emitProgressLaunch(
+      options.isLinuxGlRetry ? 'Retrying Minecraft after GPU crash' : 'Refreshing Ely.by session'
+    )
     const account = await ensurePlayableSession(selected, this.config.get().clientToken)
     await this.config.setAccount(account, true)
 
@@ -129,6 +143,7 @@ export class GameService {
 
   kill(): GameProcessState {
     if (this.child && this.state.running) {
+      this.stopRequested = true
       try {
         if (process.platform === 'win32' && this.child.pid) {
           spawn('taskkill', ['/PID', String(this.child.pid), '/T', '/F'])
@@ -181,10 +196,12 @@ export class GameService {
       this.pushLog('system', `Process error: ${err.message}`)
     })
     child.on('close', (code, signal) => {
+      const startedAt = this.state.startedAt
+      const elapsedMs = startedAt != null ? Date.now() - startedAt : 0
       this.state = {
         running: false,
         pid: null,
-        startedAt: this.state.startedAt,
+        startedAt,
         exitCode: code,
         serverId: null
       }
@@ -195,7 +212,35 @@ export class GameService {
         this.pushLog('system', `Minecraft exited with code ${code}`)
       }
       this.emitState()
+
+      if (this.shouldRetryLinuxGlCrash(signal, elapsedMs)) {
+        this.linuxGlRetryUsed = true
+        this.pushLog(
+          'system',
+          'Detected early NVIDIA/GLFW native crash — retrying launch once (usually succeeds).'
+        )
+        setImmediate(() => {
+          void this.launch(serverId, { isLinuxGlRetry: true }).catch((err) => {
+            this.pushLog(
+              'system',
+              `Automatic retry failed: ${err instanceof Error ? err.message : String(err)}`
+            )
+          })
+        })
+      }
     })
+  }
+
+  /**
+   * AppImage + NVIDIA XWayland: first present after cold GL often SIGSEGVs in
+   * glfwWaitEventsTimeout; the second launch in the same session is fine.
+   */
+  private shouldRetryLinuxGlCrash(signal: NodeJS.Signals | null, elapsedMs: number): boolean {
+    if (process.platform !== 'linux') return false
+    if (this.stopRequested || this.linuxGlRetryUsed) return false
+    if (signal !== 'SIGABRT' && signal !== 'SIGSEGV') return false
+    // Crash during resource reload / first frames (~50–90s on Prominence).
+    return elapsedMs > 5_000 && elapsedMs < 180_000
   }
 
   private pushLog(stream: GameLogLine['stream'], text: string): void {
