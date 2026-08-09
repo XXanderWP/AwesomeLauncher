@@ -898,3 +898,71 @@ describe('discord presence helpers', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('prominence presence bridge', () => {
+  const {
+    parseLevelsState,
+    parseSdrpPresenceLogLine,
+    extractLatestProminencePresence,
+    ensureSdrpLogState
+  } =
+    require('../../src/main/services/discord/prominencePresence') as typeof import('../../src/main/services/discord/prominencePresence')
+  const fs = require('fs-extra') as typeof import('fs-extra')
+  const os = require('os') as typeof import('os')
+  const path = require('path') as typeof import('path')
+
+  it('parses Prominence level/item-level state lines', () => {
+    expect(parseLevelsState('Level 42 | 850 Item Level')).toEqual({
+      levels: 'Level 42 | 850 Item Level',
+      playerLevel: 42,
+      itemLevel: 850
+    })
+    expect(parseLevelsState('In Overworld')).toBeNull()
+  })
+
+  it('parses SDRP logState JSON into location and levels', () => {
+    const line =
+      '[pool-3-thread-1/INFO]: Sent state to discord: {"state":"Level 12 | 340 Item Level","details":"📍 Plains, Overworld","assets":{"large_image":"logo"}}'
+    const parsed = parseSdrpPresenceLogLine(line)
+    expect(parsed).toMatchObject({
+      location: '📍 Plains, Overworld',
+      levels: 'Level 12 | 340 Item Level',
+      playerLevel: 12,
+      itemLevel: 340
+    })
+  })
+
+  it('picks the latest matching log line', () => {
+    const latest = extractLatestProminencePresence([
+      {
+        text: 'Sent state to discord: {"state":"Level 1 | 10 Item Level","details":"📍 Beach, Overworld"}',
+        timestamp: 1
+      },
+      { text: 'unrelated', timestamp: 2 },
+      {
+        text: 'Sent state to discord: {"state":"Level 5 | 99 Item Level","details":"📍 Forest, the_nether"}',
+        timestamp: 3
+      }
+    ])
+    expect(latest?.playerLevel).toBe(5)
+    expect(latest?.itemLevel).toBe(99)
+    expect(latest?.location).toContain('Forest')
+  })
+
+  it('enables SDRP logState once in the instance config', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'al-sdrp-'))
+    const configPath = path.join(dir, 'config', 'sdrp-common.json')
+    await fs.outputJson(configPath, {
+      clientId: 1273573655041015889,
+      enabled: true,
+      screenEvent: true,
+      clientJoinEvent: true,
+      logState: false
+    })
+
+    await expect(ensureSdrpLogState(dir)).resolves.toBe(true)
+    await expect(ensureSdrpLogState(dir)).resolves.toBe(false)
+    expect((await fs.readJson(configPath)).logState).toBe(true)
+    await fs.remove(dir)
+  })
+})

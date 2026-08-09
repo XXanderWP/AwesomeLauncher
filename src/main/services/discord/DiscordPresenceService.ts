@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import path from 'path'
 import rpc from 'discord-rpc'
 import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
@@ -10,6 +11,12 @@ import { buildDiscordJoinButtonUrl } from '../../../shared/protocol'
 import { isJoinBridgeAvailable } from './joinBridge'
 import { ensureLinuxIpcSocket, getPlatformImage } from './platformImage'
 import {
+  ensureSdrpLogState,
+  extractLatestProminencePresence,
+  parseSdrpPresenceLogLine,
+  type ProminencePresenceData
+} from './prominencePresence'
+import {
   getPresenceStrings,
   normalizeUuid,
   resolveLargeImageKey,
@@ -20,6 +27,8 @@ const CLIENT_ID = '1533660095479812258'
 const RECONNECT_MS = 30_000
 const REFRESH_MS = 15_000
 const RATE_LIMIT_FIRST_MS = 15_000
+/** Ignore stale Prominence RPC snapshots after the game has been quiet this long. */
+const PROMINENCE_STALE_MS = 120_000
 
 interface PresenceSnapshot {
   phase: PresencePhase
@@ -41,6 +50,9 @@ export class DiscordPresenceService {
   private readonly platformImage = getPlatformImage()
   private lastSnapshot: PresenceSnapshot | null = null
   private unsubGame: (() => void) | null = null
+  private unsubLog: (() => void) | null = null
+  private prominencePresence: ProminencePresenceData | null = null
+  private sdrpLogStateEnsuredFor: string | null = null
 
   constructor(
     private readonly config: ConfigService,
@@ -49,7 +61,20 @@ export class DiscordPresenceService {
   ) {}
 
   start(): void {
-    this.unsubGame = this.game.onStateChange(() => {
+    this.unsubGame = this.game.onStateChange((state) => {
+      if (!state.running) {
+        this.prominencePresence = null
+        this.sdrpLogStateEnsuredFor = null
+      } else if (state.serverId) {
+        void this.ensureProminenceBridge(state.serverId)
+      }
+      void this.refreshActivity()
+    })
+
+    this.unsubLog = this.game.onLog((line) => {
+      const parsed = parseSdrpPresenceLogLine(line.text)
+      if (!parsed) return
+      this.prominencePresence = parsed
       void this.refreshActivity()
     })
 
@@ -74,6 +99,8 @@ export class DiscordPresenceService {
   async stop(): Promise<void> {
     this.unsubGame?.()
     this.unsubGame = null
+    this.unsubLog?.()
+    this.unsubLog = null
     await this.shutdown()
   }
 
@@ -111,6 +138,7 @@ export class DiscordPresenceService {
     const active = this.client
     this.client = null
     this.lastSnapshot = null
+    this.prominencePresence = null
     if (!active) return
 
     try {
@@ -166,6 +194,33 @@ export class DiscordPresenceService {
     })
   }
 
+  private async ensureProminenceBridge(serverId: string): Promise<void> {
+    if (this.sdrpLogStateEnsuredFor === serverId) return
+    this.sdrpLogStateEnsuredFor = serverId
+
+    const gameDir = path.join(this.config.getDataDirectory(), 'instances', serverId)
+    try {
+      const enabled = await ensureSdrpLogState(gameDir)
+      if (enabled) {
+        console.log('[DiscordRPC] Enabled SDRP logState for Prominence presence bridge')
+      }
+    } catch (error) {
+      console.log('[DiscordRPC] Failed to enable SDRP logState:', error)
+    }
+
+    const fromLogs = extractLatestProminencePresence(this.game.getLogs())
+    if (fromLogs) {
+      this.prominencePresence = fromLogs
+    }
+  }
+
+  private getFreshProminencePresence(): ProminencePresenceData | null {
+    const data = this.prominencePresence
+    if (!data) return null
+    if (Date.now() - data.updatedAt > PROMINENCE_STALE_MS) return null
+    return data
+  }
+
   private async buildSnapshot(): Promise<PresenceSnapshot> {
     const lang = resolveLanguage(this.config.getLanguageSetting(), app.getLocale())
     const strings = getPresenceStrings(lang)
@@ -183,6 +238,8 @@ export class DiscordPresenceService {
     }
 
     const serverId = gameState.serverId
+    void this.ensureProminenceBridge(serverId)
+
     const summary = (await this.distro.get()).servers.find((s) => s.id === serverId)
     const serverName = this.config.get().cachedServerNames[serverId] || summary?.name || serverId
     const largeImageKey = resolveLargeImageKey({
@@ -190,6 +247,7 @@ export class DiscordPresenceService {
       serverIconUrl: summary?.icon
     })
     const startTimestamp = gameState.startedAt || Date.now()
+    const prominence = this.getFreshProminencePresence()
 
     let onServer = false
     let playtimeFormatted: string | null = null
@@ -220,22 +278,29 @@ export class DiscordPresenceService {
     }
 
     if (onServer) {
-      let state: string | undefined
-      if (playersOnline !== null && playtimeFormatted) {
-        state = strings.stateOnlinePlaytime(playersOnline, playtimeFormatted)
-      } else if (playersOnline !== null) {
-        state = strings.stateOnline(playersOnline)
-      } else if (playtimeFormatted) {
-        state = strings.statePlaytime(playtimeFormatted)
-      }
-
       const snapshot: PresenceSnapshot = {
         phase: 'server',
-        details: strings.onServer(nick),
-        state,
+        details: prominence?.location || strings.onServer(nick),
         largeImageKey,
         largeImageText: strings.largeImageGame(serverName),
         startTimestamp
+      }
+
+      if (prominence?.levels) {
+        snapshot.state = prominence.levels
+        if (prominence.location) {
+          snapshot.details = prominence.location
+        }
+      } else {
+        let state: string | undefined
+        if (playersOnline !== null && playtimeFormatted) {
+          state = strings.stateOnlinePlaytime(playersOnline, playtimeFormatted)
+        } else if (playersOnline !== null) {
+          state = strings.stateOnline(playersOnline)
+        } else if (playtimeFormatted) {
+          state = strings.statePlaytime(playtimeFormatted)
+        }
+        snapshot.state = state
       }
 
       if (await isJoinBridgeAvailable()) {
@@ -244,6 +309,17 @@ export class DiscordPresenceService {
       }
 
       return snapshot
+    }
+
+    if (prominence?.location || prominence?.levels) {
+      return {
+        phase: 'game',
+        details: prominence.location || strings.inGame,
+        state: prominence.levels || serverName,
+        largeImageKey,
+        largeImageText: strings.largeImageGame(serverName),
+        startTimestamp
+      }
     }
 
     return {

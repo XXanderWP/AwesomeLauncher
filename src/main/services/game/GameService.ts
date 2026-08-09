@@ -10,6 +10,7 @@ import type { InstallService } from '../download/InstallService'
 import { ensurePlayableSession } from '../auth/elybyDeviceCode'
 import { createRequire } from 'module'
 import { resolveAuthlibInjectorPath, setLaunchBridge } from '../launch/launchBridge.js'
+import { ensureSdrpLogState } from '../discord/prominencePresence'
 
 const require = createRequire(__filename)
 const ProcessBuilder = require('../launch/processbuilder.legacy.js')
@@ -27,6 +28,7 @@ export class GameService {
   private logs: GameLogLine[] = []
   private readonly maxLogs = 5000
   private readonly stateListeners = new Set<(state: GameProcessState) => void>()
+  private readonly logListeners = new Set<(line: GameLogLine) => void>()
   /** User clicked Stop — do not auto-retry after SIGABRT. */
   private stopRequested = false
   /** One automatic relaunch after early NVIDIA/GLFW SIGSEGV (AppImage cold present). */
@@ -46,6 +48,13 @@ export class GameService {
     this.stateListeners.add(listener)
     return () => {
       this.stateListeners.delete(listener)
+    }
+  }
+
+  onLog(listener: (line: GameLogLine) => void): () => void {
+    this.logListeners.add(listener)
+    return () => {
+      this.logListeners.delete(listener)
     }
   }
 
@@ -104,6 +113,17 @@ export class GameService {
     const gameDir = path.join(dataDir, 'instances', serverId)
     // Keep -javaagent off AppImage/fuse mounts (packaged-only GLFW/GLX crashes).
     const authlibPath = stageAuthlibInjector(bundledAuthlibPath, commonDir)
+
+    // Prominence SDRP + prominent_talents: enable logState before JVM start so we can
+    // mirror location / player level / item level into launcher Discord Rich Presence.
+    try {
+      await ensureSdrpLogState(gameDir)
+    } catch (err) {
+      console.log(
+        '[GameService] SDRP logState bridge skipped:',
+        err instanceof Error ? err.message : String(err)
+      )
+    }
 
     setLaunchBridge({
       config: this.config,
@@ -251,6 +271,13 @@ export class GameService {
     }
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IPC.EVENT_GAME_LOG, line)
+    }
+    for (const listener of this.logListeners) {
+      try {
+        listener(line)
+      } catch (err) {
+        console.error('[GameService] log listener failed:', err)
+      }
     }
   }
 

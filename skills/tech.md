@@ -42,4 +42,5 @@ MIT (`LICENSE`, also declared in `package.json`)
 - Linux Settings can install a user `.desktop` shortcut + icon for KDE/GNOME app menus
 - macOS DMG must include `How to remove quarantine.txt` via `dmg.contents` (not only app extraFiles)
 - Discord Rich Presence (`DiscordPresenceService`, client id in service): launcher / in-game / on-server states; toggle `settings.launcher.discordRichPresence` (default on)
+- Prominence in-game RPC comes from mods `sdrp` + `prominent_talents` (`📍 biome, dim` + `Level N | M Item Level`). Launcher mirrors it by enabling SDRP `logState` and parsing `Sent state to discord:` from game logs (`prominencePresence.ts`)
 - Custom protocol `awesomelauncher://launch/<serverId>` (single-instance); Discord join button uses HTTPS bridge `resources/web/join.html` hosted at files CDN
