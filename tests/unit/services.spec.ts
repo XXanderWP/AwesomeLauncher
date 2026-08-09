@@ -953,7 +953,7 @@ describe('prominence presence bridge', () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'al-sdrp-'))
     const configPath = path.join(dir, 'config', 'sdrp-common.json')
     await fs.outputJson(configPath, {
-      clientId: 1273573655041015889,
+      clientId: '1273573655041015889',
       enabled: true,
       screenEvent: true,
       clientJoinEvent: true,
