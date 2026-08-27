@@ -1,5 +1,6 @@
 import fs from 'fs-extra'
 import path from 'path'
+import { validateLocalFile } from 'helios-core/common'
 import {
   canDeleteOrphanTrackedPath,
   isFullyImmunePath,
@@ -21,6 +22,84 @@ export interface SyncStats {
   protectedRestored: number
   orphansRemoved: number
   trackedCount: number
+}
+
+function isPathBelow(root: string, candidate: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate))
+  return Boolean(relative) && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+}
+
+/**
+ * Reuse exact, hash-matching files from the two layouts used by older
+ * launchers. This runs before repair, preventing a full redownload and avoiding
+ * duplicate loading from the now user-owned instance mods folder.
+ */
+export async function migrateLegacyPackMods(
+  server: any,
+  dataDirectory: string,
+  serverId: string
+): Promise<number> {
+  const commonDir = path.join(dataDirectory, 'common')
+  const instanceModsDir = path.join(dataDirectory, 'instances', serverId, 'mods')
+  let migrated = 0
+
+  const walk = async (modules: any[]): Promise<void> => {
+    for (const module of modules) {
+      const raw = module.rawModule || module
+      const type = raw.type
+      const hash = raw.artifact?.MD5
+      let target: string | null = null
+      try {
+        target = typeof module.getPath === 'function' ? module.getPath() : null
+      } catch {
+        target = null
+      }
+
+      if (target && typeof hash === 'string') {
+        let legacyPath: string | null = null
+        if (type === 'NeoForgeMod' && typeof raw.artifact?.url === 'string') {
+          try {
+            const fileName = path.posix.basename(
+              decodeURIComponent(new URL(raw.artifact.url).pathname)
+            )
+            const candidate = path.join(instanceModsDir, fileName)
+            if (isPathBelow(instanceModsDir, candidate)) legacyPath = candidate
+          } catch {
+            // Invalid remote URL will be reported by FullRepair.
+          }
+        } else if (type === 'ForgeMod') {
+          const forgeRoot = path.join(commonDir, 'mods', 'forge')
+          if (isPathBelow(forgeRoot, target)) {
+            legacyPath = path.join(commonDir, 'modstore', path.relative(forgeRoot, target))
+          }
+        }
+
+        if (
+          legacyPath &&
+          (await fs.pathExists(legacyPath)) &&
+          (await validateLocalFile(legacyPath, 'md5', hash))
+        ) {
+          await fs.ensureDir(path.dirname(target))
+          if (!(await fs.pathExists(target))) {
+            await fs.move(legacyPath, target)
+          } else if (await validateLocalFile(target, 'md5', hash)) {
+            await fs.remove(legacyPath)
+          } else {
+            await fs.remove(target)
+            await fs.move(legacyPath, target)
+          }
+          migrated++
+        }
+      }
+
+      if (Array.isArray(module.subModules) && module.subModules.length > 0) {
+        await walk(module.subModules)
+      }
+    }
+  }
+
+  await walk(Array.isArray(server?.modules) ? server.modules : [])
+  return migrated
 }
 
 /**
@@ -74,20 +153,23 @@ export function instanceRelativePath(dataRelativePath: string, serverId: string)
   return normalized.slice(prefix.length)
 }
 
-export function shouldSkipRemoteModule(dataRelativePath: string, serverId: string): boolean {
-  return shouldSkipRemoteModuleWithManagedMods(dataRelativePath, serverId)
+/** Fail before FullRepair if a malformed/legacy distro tries to own user mods. */
+export function assertDistributionDoesNotOwnUserMods(
+  server: any,
+  dataDirectory: string,
+  serverId: string
+): void {
+  const offending = collectDistributionModules(server, dataDirectory)
+    .map((module) => instanceRelativePath(module.relativePath, serverId))
+    .find((relativePath) => relativePath != null && isUserModsPath(relativePath))
+  if (offending) {
+    throw new Error(
+      `Distribution module resolves into user-owned instance/${offending}; regenerate and deploy the distro with NeoForgeMod modules`
+    )
+  }
 }
 
-/**
- * Pack modules in instance `mods/` are tracked separately from player mods.
- * Their paths are supplied from the active distribution, so they may be
- * repaired and removed when the pack changes without touching user files.
- */
-export function shouldSkipRemoteModuleWithManagedMods(
-  dataRelativePath: string,
-  serverId: string,
-  managedPackMods: ReadonlySet<string> = new Set()
-): boolean {
+export function shouldSkipRemoteModule(dataRelativePath: string, serverId: string): boolean {
   const instRel = instanceRelativePath(dataRelativePath, serverId)
   if (!instRel) {
     return false
@@ -95,7 +177,7 @@ export function shouldSkipRemoteModuleWithManagedMods(
   if (isFullyImmunePath(instRel)) {
     return true
   }
-  if (isUserModsPath(instRel) && !managedPackMods.has(instRel)) {
+  if (isUserModsPath(instRel)) {
     return true
   }
   return false
@@ -110,12 +192,16 @@ export async function removeOrphanTrackedFiles(options: {
   serverId: string
   previousTrackedPaths: string[]
   currentTrackedPaths: Set<string>
+  globallyReferencedPaths?: ReadonlySet<string>
   allowManagedMods?: boolean
 }): Promise<number> {
   let removed = 0
   for (const rel of options.previousTrackedPaths) {
     const normalized = normalizeGameRelativePath(rel)
     if (options.currentTrackedPaths.has(normalized)) {
+      continue
+    }
+    if (options.globallyReferencedPaths?.has(normalized)) {
       continue
     }
 
@@ -150,26 +236,33 @@ export async function finalizeFileSync(options: {
   dataDirectory: string
   serverId: string
   server: any
+  distribution?: any
   protectedRestored: number
-  managedPackMods?: ReadonlySet<string>
 }): Promise<SyncStats> {
   const previous = await loadServerFileIndex(options.dataDirectory, options.serverId)
   const modules = collectDistributionModules(options.server, options.dataDirectory).filter(
-    (m) =>
-      !shouldSkipRemoteModuleWithManagedMods(
-        m.relativePath,
-        options.serverId,
-        options.managedPackMods
-      )
+    (m) => !shouldSkipRemoteModule(m.relativePath, options.serverId)
   )
   const currentPaths = modules.map((m) => m.relativePath)
   const currentSet = new Set(currentPaths)
+  const globallyReferencedPaths = new Set<string>()
+  const allServers = options.distribution?.servers
+  if (Array.isArray(allServers)) {
+    for (const distroServer of allServers) {
+      for (const module of collectDistributionModules(distroServer, options.dataDirectory)) {
+        if (!shouldSkipRemoteModule(module.relativePath, distroServer.rawServer?.id || '')) {
+          globallyReferencedPaths.add(module.relativePath)
+        }
+      }
+    }
+  }
 
   const orphansRemoved = await removeOrphanTrackedFiles({
     dataDirectory: options.dataDirectory,
     serverId: options.serverId,
     previousTrackedPaths: previous?.trackedPaths || [],
     currentTrackedPaths: currentSet,
+    globallyReferencedPaths,
     allowManagedMods: true
   })
 

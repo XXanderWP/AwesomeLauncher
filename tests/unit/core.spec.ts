@@ -15,16 +15,16 @@ import {
 } from '../../src/main/services/auth/elybyAuth'
 import {
   backupPreservedFiles,
-  removeUnbackedUserMods,
   restorePreservedFiles,
   vacatePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
 import {
+  assertDistributionDoesNotOwnUserMods,
   collectDistributionModules,
   instanceRelativePath,
+  migrateLegacyPackMods,
   removeOrphanTrackedFiles,
-  shouldSkipRemoteModule,
-  shouldSkipRemoteModuleWithManagedMods
+  shouldSkipRemoteModule
 } from '../../src/main/services/download/fileSync'
 import {
   loadServerFileIndex,
@@ -497,27 +497,19 @@ describe('preserveBackup', () => {
     await fs.outputFile(path.join(root, 'saves', 'world', 'level.dat'), 'save')
 
     const entries = await backupPreservedFiles(root, true)
-    expect(entries.map((e) => e.relativePath).sort()).toEqual([
-      'config/demo.json',
-      'mods/demo.jar',
-      'options.txt'
-    ])
+    expect(entries.map((e) => e.relativePath).sort()).toEqual(['config/demo.json', 'options.txt'])
 
     await vacatePreservedFiles(entries)
     expect(await fs.pathExists(path.join(root, 'options.txt'))).toBe(false)
     expect(await fs.pathExists(path.join(root, 'config', 'demo.json'))).toBe(false)
-    expect(await fs.pathExists(path.join(root, 'mods', 'demo.jar'))).toBe(false)
-    await fs.outputFile(path.join(root, 'mods', 'forced-pack.jar'), 'forced')
+    expect(await fs.pathExists(path.join(root, 'mods', 'demo.jar'))).toBe(true)
 
     const restored = await restorePreservedFiles(entries)
-    expect(restored).toBe(3)
+    expect(restored).toBe(2)
     expect(await fs.readFile(path.join(root, 'options.txt'), 'utf8')).toBe('lang:en_us')
     expect(await fs.readFile(path.join(root, 'config', 'demo.json'), 'utf8')).toBe('{"a":1}')
     expect(await fs.readFile(path.join(root, 'mods', 'demo.jar'), 'utf8')).toBe('jar')
 
-    const purged = await removeUnbackedUserMods(root, entries)
-    expect(purged).toBe(1)
-    expect(await fs.pathExists(path.join(root, 'mods', 'forced-pack.jar'))).toBe(false)
     expect(await fs.readFile(path.join(root, 'logs', 'latest.log'), 'utf8')).toBe('log')
     expect(await fs.readFile(path.join(root, 'saves', 'world', 'level.dat'), 'utf8')).toBe('save')
     expect(await fs.readFile(path.join(root, 'resourcepacks', 'pack.zip'), 'utf8')).toBe('pack')
@@ -525,39 +517,13 @@ describe('preserveBackup', () => {
     await fs.remove(root)
   })
 
-  it('skips config backup when preserve disabled but still protects options and mods', async () => {
+  it('skips config and never walks user mods when preserve is disabled', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-test-'))
     await fs.outputFile(path.join(root, 'options.txt'), 'x')
     await fs.outputFile(path.join(root, 'config', 'a.json'), 'c')
     await fs.outputFile(path.join(root, 'mods', 'u.jar'), 'm')
     const entries = await backupPreservedFiles(root, false)
-    expect(entries.map((e) => e.relativePath).sort()).toEqual(['mods/u.jar', 'options.txt'])
-    await fs.remove(root)
-  })
-
-  it('leaves distribution-managed NeoForge mods available to repair', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-managed-mod-'))
-    const managed = new Set(['mods/sodium-neoforge.jar'])
-    await fs.outputFile(path.join(root, 'mods', 'sodium-neoforge.jar'), 'pack')
-    await fs.outputFile(path.join(root, 'mods', 'player.jar'), 'player')
-    await fs.outputFile(path.join(root, 'mods', 'unexpected.jar'), 'unexpected')
-
-    const entries = await backupPreservedFiles(root, true, managed)
-    expect(entries.map((entry) => entry.relativePath).sort()).toEqual([
-      'mods/player.jar',
-      'mods/unexpected.jar'
-    ])
-
-    const removed = await removeUnbackedUserMods(
-      root,
-      entries.filter((entry) => entry.relativePath === 'mods/player.jar'),
-      managed
-    )
-    expect(removed).toBe(1)
-    expect(await fs.pathExists(path.join(root, 'mods', 'sodium-neoforge.jar'))).toBe(true)
-    expect(await fs.pathExists(path.join(root, 'mods', 'player.jar'))).toBe(true)
-    expect(await fs.pathExists(path.join(root, 'mods', 'unexpected.jar'))).toBe(false)
-
+    expect(entries.map((e) => e.relativePath).sort()).toEqual(['options.txt'])
     await fs.remove(root)
   })
 })
@@ -566,6 +532,58 @@ describe('serverFileIndex + orphan sync', () => {
   const fs = require('fs-extra')
   const os = require('os')
   const path = require('path')
+
+  it('rejects a distribution that resolves a module into user mods', () => {
+    const dataDir = path.resolve('/data')
+    const server = {
+      modules: [
+        {
+          getPath: () => path.join(dataDir, 'instances', 'srv', 'mods', 'pack.jar'),
+          rawModule: { type: 'File' },
+          subModules: []
+        }
+      ]
+    }
+    expect(() => assertDistributionDoesNotOwnUserMods(server, dataDir, 'srv')).toThrow(/user-owned/)
+  })
+
+  it('moves hash-matching legacy NeoForge pack mods out of instance mods', async () => {
+    const crypto = require('crypto')
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mod-migration-'))
+    const legacy = path.join(dataDir, 'instances', 'srv', 'mods', 'pack.jar')
+    const target = path.join(
+      dataDir,
+      'common',
+      'mods',
+      'neoforge',
+      'generated',
+      'pack',
+      '1',
+      'pack-1.jar'
+    )
+    const user = path.join(dataDir, 'instances', 'srv', 'mods', 'user.jar')
+    await fs.outputFile(legacy, 'pack')
+    await fs.outputFile(user, 'user')
+    const hash = crypto.createHash('md5').update('pack').digest('hex')
+    const server = {
+      modules: [
+        {
+          rawModule: {
+            type: 'NeoForgeMod',
+            artifact: { MD5: hash, url: 'https://example.test/neoforgemods/required/pack.jar' }
+          },
+          getPath: () => target,
+          subModules: []
+        }
+      ]
+    }
+
+    expect(await migrateLegacyPackMods(server, dataDir, 'srv')).toBe(1)
+    expect(await fs.pathExists(legacy)).toBe(false)
+    expect(await fs.readFile(target, 'utf8')).toBe('pack')
+    expect(await fs.readFile(user, 'utf8')).toBe('user')
+    await fs.remove(dataDir)
+  })
 
   it('persists tracked paths per server', async () => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-index-'))
@@ -600,13 +618,6 @@ describe('serverFileIndex + orphan sync', () => {
       'resourcepacks/old.zip'
     )
     expect(shouldSkipRemoteModule('instances/Prominence/mods/pack.jar', 'Prominence')).toBe(true)
-    expect(
-      shouldSkipRemoteModuleWithManagedMods(
-        'instances/Prominence/mods/pack.jar',
-        'Prominence',
-        new Set(['mods/pack.jar'])
-      )
-    ).toBe(false)
     expect(shouldSkipRemoteModule('instances/Prominence/logs/a.log', 'Prominence')).toBe(true)
 
     const removed = await removeOrphanTrackedFiles({
@@ -650,6 +661,24 @@ describe('serverFileIndex + orphan sync', () => {
     await fs.remove(dataDir)
   })
 
+  it('does not delete a common mod still referenced by another server', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-shared-mod-'))
+    const shared = path.join(dataDir, 'common', 'mods', 'neoforge', 'shared.jar')
+    await fs.outputFile(shared, 'pack')
+
+    const removed = await removeOrphanTrackedFiles({
+      dataDirectory: dataDir,
+      serverId: 'old-server',
+      previousTrackedPaths: ['common/mods/neoforge/shared.jar'],
+      currentTrackedPaths: new Set(),
+      globallyReferencedPaths: new Set(['common/mods/neoforge/shared.jar'])
+    })
+
+    expect(removed).toBe(0)
+    expect(await fs.pathExists(shared)).toBe(true)
+    await fs.remove(dataDir)
+  })
+
   it('collects Helios-style module paths', () => {
     const dataDir = '/data'
     const server = {
@@ -671,5 +700,63 @@ describe('serverFileIndex + orphan sync', () => {
       'common/mods/fabric/a.jar',
       'instances/Prominence/config/b.json'
     ])
+  })
+})
+
+describe('NeoForge central locator', () => {
+  const fs = require('fs-extra')
+  const os = require('os')
+  const path = require('path')
+  const {
+    injectLocatorJvmArguments,
+    locatorGeneration,
+    safeManifestDirectory,
+    writeNeoForgeModManifest
+  } = require('../../src/main/services/launch/neoforgeLocator')
+
+  it('selects the matching FML API generation', () => {
+    expect(locatorGeneration('1.20.1')).toBe('legacy-1.20.1')
+    expect(locatorGeneration('1.20.4')).toBe('legacy-1.20.1')
+    expect(locatorGeneration('1.20.5')).toBe('modern-1.20.5')
+    expect(locatorGeneration('1.21.1')).toBe('modern-1.20.5')
+  })
+
+  it('writes only selected central NeoForge modules', async () => {
+    const commonDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-locator-'))
+    const centralJar = path.join(commonDir, 'mods', 'neoforge', 'g', 'a', '1', 'a-1.jar')
+    await fs.outputFile(centralJar, 'jar')
+    const result = writeNeoForgeModManifest(commonDir, '../unsafe server', [
+      {
+        rawModule: { type: 'NeoForgeMod' },
+        getPath: () => centralJar
+      },
+      {
+        rawModule: { type: 'ForgeMod' },
+        getPath: () => path.join(commonDir, 'mods', 'forge', 'ignored.jar')
+      }
+    ])
+
+    expect(result.entries).toEqual([path.resolve(centralJar)])
+    expect(await fs.readFile(result.manifestPath, 'utf8')).toContain(path.resolve(centralJar))
+    expect(path.basename(path.dirname(result.manifestPath))).toBe(
+      safeManifestDirectory('../unsafe server')
+    )
+    await fs.remove(commonDir)
+  })
+
+  it('adds the locator to module path and passes the manifest properties', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-locator-args-'))
+    const locator = path.join(root, 'locator.jar')
+    await fs.outputFile(locator, 'jar')
+    const args = injectLocatorJvmArguments(
+      ['-p', 'loader.jar'],
+      locator,
+      path.join(root, 'mods.list'),
+      path.join(root, 'mods')
+    )
+    expect(args[1]).toContain(locator)
+    expect(args).toContain(`-Dawesomecraft.neoforge.modManifest=${path.join(root, 'mods.list')}`)
+    expect(args).toContain(`-Dawesomecraft.neoforge.modRoot=${path.join(root, 'mods')}`)
+    await fs.remove(root)
   })
 })

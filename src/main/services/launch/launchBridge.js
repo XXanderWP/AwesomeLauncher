@@ -79,10 +79,18 @@ function resolveAuthlibInjectorPath() {
   )
 }
 
+function resolveNeoForgeLocatorPath(generation) {
+  const base = app.isPackaged
+    ? path.join(process.resourcesPath, 'libraries')
+    : path.join(app.getAppPath(), 'resources', 'libraries')
+  return path.join(base, 'neoforge-locator', `${generation}.jar`)
+}
+
 module.exports = {
   setLaunchBridge,
   getLaunchBridge,
   LegacyConfigBridge,
   getAuthlibInjectorJarPath,
-  resolveAuthlibInjectorPath
+  resolveAuthlibInjectorPath,
+  resolveNeoForgeLocatorPath
 }

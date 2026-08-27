@@ -13,13 +13,12 @@ import { IPC } from '../../../shared/types'
 import { commonDirectory, instanceDirectory, instancesDirectory } from '../../utils/paths'
 import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
+import { backupPreservedFiles, restorePreservedFiles, vacatePreservedFiles } from './preserveBackup'
 import {
-  backupPreservedFiles,
-  removeUnbackedUserMods,
-  restorePreservedFiles,
-  vacatePreservedFiles
-} from './preserveBackup'
-import { collectDistributionModules, finalizeFileSync, instanceRelativePath } from './fileSync'
+  assertDistributionDoesNotOwnUserMods,
+  finalizeFileSync,
+  migrateLegacyPackMods
+} from './fileSync'
 
 export interface InstallResult {
   versionData: any
@@ -136,16 +135,11 @@ export class InstallService {
     await fs.ensureDir(commonDir)
     await fs.ensureDir(instanceDir)
 
+    assertDistributionDoesNotOwnUserMods(server, dataDir, serverId)
+    await migrateLegacyPackMods(server, dataDir, serverId)
+
     const preserve = this.config.getPreservePlayerConfigs()
-    const managedPackMods = new Set(
-      collectDistributionModules(server, dataDir)
-        .map((module) => instanceRelativePath(module.relativePath, serverId))
-        .filter(
-          (relativePath): relativePath is string =>
-            relativePath != null && (relativePath === 'mods' || relativePath.startsWith('mods/'))
-        )
-    )
-    const backup = await backupPreservedFiles(instanceDir, preserve, managedPackMods)
+    const backup = await backupPreservedFiles(instanceDir, preserve)
     await vacatePreservedFiles(backup)
 
     const fullRepair = new FullRepair(
@@ -190,14 +184,13 @@ export class InstallService {
       }
 
       restoredConfigs = await restorePreservedFiles(backup)
-      await removeUnbackedUserMods(instanceDir, backup, managedPackMods)
 
       const syncStats = await finalizeFileSync({
         dataDirectory: dataDir,
         serverId,
         server,
-        protectedRestored: restoredConfigs,
-        managedPackMods
+        distribution: distro,
+        protectedRestored: restoredConfigs
       })
 
       this.emitProgress({

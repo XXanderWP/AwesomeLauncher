@@ -21,7 +21,7 @@ import {
   type CachedModMeta
 } from './modsCacheStore'
 
-const MOD_TYPES = new Set(['FabricMod', 'ForgeMod', 'LiteMod', 'LiteLoader', 'File'])
+const MOD_TYPES = new Set(['FabricMod', 'ForgeMod', 'NeoForgeMod', 'LiteMod', 'LiteLoader'])
 
 interface CachedModsList {
   signature: string
@@ -46,10 +46,7 @@ export class ModsService {
 
     const instanceModsDir = path.join(instanceDirectory(dataDir, serverId), 'mods')
     const packPaths = await this.listPackModPaths(serverId, dataDir)
-    const packPathSet = new Set(packPaths.map((filePath) => path.resolve(filePath)))
-    const userPaths = (await listModFilesInDirectory(instanceModsDir)).filter(
-      (filePath) => !packPathSet.has(path.resolve(filePath))
-    )
+    const userPaths = await listModFilesInDirectory(instanceModsDir)
     const signature = await this.buildSignature([...userPaths, ...packPaths])
 
     const memoryHit = this.listCache.get(serverId)
@@ -216,7 +213,6 @@ export class ModsService {
 
     const modules = this.collectModModules(server.modules || [])
     const commonRoot = path.resolve(commonDirectory(dataDir))
-    const instanceModsRoot = path.resolve(path.join(instanceDirectory(dataDir, serverId), 'mods'))
     const out: string[] = []
     const seen = new Set<string>()
 
@@ -230,10 +226,7 @@ export class ModsService {
       if (!absolutePath || typeof absolutePath !== 'string') continue
       const resolved = path.resolve(absolutePath)
       if (!isModArchiveFile(path.basename(resolved))) continue
-      if (
-        !resolved.startsWith(commonRoot + path.sep) &&
-        !resolved.startsWith(instanceModsRoot + path.sep)
-      ) {
+      if (!resolved.startsWith(commonRoot + path.sep)) {
         continue
       }
       if (!(await fs.pathExists(resolved))) continue
@@ -344,10 +337,6 @@ export class ModsService {
     }
     if (!(await fs.pathExists(resolved))) {
       throw new Error('Mod file not found')
-    }
-    const packPaths = await this.listPackModPaths(serverId, dataDir)
-    if (packPaths.some((packPath) => path.resolve(packPath) === resolved)) {
-      throw new Error('Pack-managed mods cannot be changed from the user mods list')
     }
     return resolved
   }

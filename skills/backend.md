@@ -32,8 +32,15 @@ Legacy AwesomeCraftLauncher (Helios) default (one-time reuse offer when new dir 
 
 ```
 {dataDirectory}/
-  common/        # libraries, assets, versions, mod store
-  instances/{serverId}/  # game directory
+  common/
+    libraries/            # loader and game libraries
+    assets/               # Mojang assets
+    versions/             # version manifests and client jars
+    mods/fabric/           # distribution-managed Fabric mods
+    mods/forge/            # distribution-managed Forge mods
+    mods/neoforge/         # distribution-managed NeoForge mods
+    mod-manifests/         # per-server NeoForge launch allow-lists
+  instances/{serverId}/   # game directory; mods/ is user-owned
   java/          # managed runtimes (as created by helios-core)
 ```
 

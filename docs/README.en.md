@@ -27,7 +27,8 @@ xattr -dr com.apple.quarantine "/Applications/AwesomeCraftLauncher.app"
 ### Features
 
 - Ely.by login (Microsoft / offline accounts are not supported)
-- Automatic install of Java, Minecraft, Fabric, and pack files
+- Automatic install of Java, Minecraft, Fabric/NeoForge, and pack files
+- Separate user mods and verified pack mods
 - Live server online status on the home screen
 - Settings: data folder, language (EN/RU/UK), Java memory, update mode
 - File integrity verification without wiping your personal configs

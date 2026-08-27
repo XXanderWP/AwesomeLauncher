@@ -14,12 +14,13 @@ Current server example:
 ## Install pipeline
 
 1. Ensure Java matching server `javaOptions.supported` (download Adoptium/OpenJDK via helios-core if needed)
-2. Backup protected local instance files (`config/**`, `options*.txt`, user `mods/**`) when `preservePlayerConfigs` is enabled; distribution-managed NeoForge mods in `mods/` are excluded from that backup
-3. Temporarily vacate backed-up protected files, then run `FullRepair.verifyFiles` + `download` — this avoids Windows failures when replacing hidden config files
-4. Restore protected backups; retain distribution-managed NeoForge jars in instance `mods/` while purging unexpected files FullRepair dropped there
-5. Orphan cleanup using persisted server file index (`{dataDir}/sync-index/{serverId}.json`)
-6. Save the current distribution file list as the tracked set
-7. Load vanilla + Fabric version JSON and spawn ProcessBuilder
+2. Reject a legacy/malformed distro if any module resolves into user-owned `instance/mods`; migrate exact hash-matching pack JARs left by older launcher versions into the central store
+3. Backup protected local instance files (`config/**`, `options*.txt`) when `preservePlayerConfigs` is enabled; `mods/`, `logs/`, and `saves/` are never walked
+4. Temporarily vacate backed-up protected files, then run `FullRepair.verifyFiles` + `download` — this avoids Windows failures when replacing hidden config files
+5. Restore protected backups
+6. Orphan cleanup using persisted server file index (`{dataDir}/sync-index/{serverId}.json`)
+7. Save the current distribution file list as the tracked set
+8. Load vanilla + loader version JSON and spawn ProcessBuilder
 
 ## File sync rules
 
@@ -28,8 +29,8 @@ Current server example:
 | Missing locally | Always download |
 | Removed from remote | Delete locally **only if** the path was previously tracked as server-managed |
 | Never tracked locally | Leave alone (player-added files stay) |
-| `logs/`, `saves/` | Full immunity — sync never walks, restores, or deletes |
-| Instance `mods/` | User mods are protected; distribution-managed NeoForge jars are tracked individually, repaired, and cannot be toggled or removed from the user-mod UI |
+| `logs/`, `saves/`, instance `mods/` | Full immunity — sync never walks, backs up, restores, overwrites, or deletes |
+| `common/mods/{fabric,forge,neoforge}/` | Distribution-managed mods; hash-verified and read-only in the Mods UI |
 | `config/` | Download if missing; **do not** overwrite when already present (except pack metadata like `config/crash_assistant/modlist.json`) |
 | Other folders (`resourcepacks`, `shaderpacks`, `datapacks`, `common/mods`, …) | Re-download when remote hash changes |
 | `options.txt`, `optionsshaders.txt`, `optionshaders.txt` | Never overwrite when present |
@@ -37,6 +38,24 @@ Current server example:
 Tracked paths live in `sync-index/{serverId}.json` under the game data directory. On the first run after this feature, the index is created without deleting anything (no prior baseline).
 
 Integrity verification still validates mods/libraries/assets under `common/`.
+
+## NeoForge pack-mod discovery
+
+Nebula emits pack JARs as `NeoForgeMod`. A compatibility patch for helios-core
+2.3 resolves them under `common/mods/neoforge/<maven path>`; ForgeMod resolves
+under `common/mods/forge`, and FabricMod under `common/mods/fabric`.
+
+NeoForge does not receive `--fml.modLists` or `--fml.mavenRoots`. Before spawn,
+the launcher writes a server-specific allow-list under
+`common/mod-manifests/<server-hash>/neoforge.list` and adds one bundled FML
+candidate locator to the module path:
+
+- Minecraft 1.20.1–1.20.4: legacy `IModLocator` implementation
+- Minecraft 1.20.5+: modern `IModFileCandidateLocator` implementation
+
+The locator validates that every listed real path is a JAR below
+`common/mods/neoforge`; it never scans the whole common store. NeoForge's normal
+mods-folder locator continues to discover user JARs from `instance/mods`.
 
 ## Natives extraction
 

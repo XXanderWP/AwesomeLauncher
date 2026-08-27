@@ -7,7 +7,11 @@ const { Type } = require('helios-distribution-types')
 const os = require('os')
 const path = require('path')
 
-const { LegacyConfigBridge: ConfigManager, getAuthlibInjectorJarPath } = require('./launchBridge')
+const {
+  LegacyConfigBridge: ConfigManager,
+  getAuthlibInjectorJarPath,
+  resolveNeoForgeLocatorPath
+} = require('./launchBridge')
 const {
   buildMinecraftProcessEnv,
   spawnMinecraftProcess,
@@ -20,6 +24,12 @@ const ElybyPaths = {
 
 const logger = LoggerUtil.getLogger('ProcessBuilder')
 const { extractNativeZip } = require('./nativeExtract')
+const {
+  NEOFORGE_MOD_TYPE,
+  injectLocatorJvmArguments,
+  locatorGeneration,
+  writeNeoForgeModManifest
+} = require('./neoforgeLocator')
 
 function elybyJavaAgentArg() {
   const jar = ElybyPaths.getAuthlibInjectorJarPath()
@@ -99,6 +109,18 @@ class ProcessBuilder {
       ConfigManager.getModConfiguration(this.server.rawServer.id).mods,
       this.server.modules
     )
+
+    if (this.usingNeoForgeLoader) {
+      const generation = locatorGeneration(this.server.rawServer.minecraftVersion)
+      const locatorJar = resolveNeoForgeLocatorPath(generation)
+      const manifest = writeNeoForgeModManifest(
+        this.commonDir,
+        this.server.rawServer.id,
+        modObj.fMods
+      )
+      this.neoForgeLocator = { locatorJar, ...manifest }
+      logger.info(`NeoForge locator ${generation}: ${manifest.entries.length} central pack mods`)
+    }
 
     // Mod list below 1.13
     // Fabric only supports 1.14+
@@ -334,7 +356,8 @@ class ProcessBuilder {
         type === Type.ForgeMod ||
         type === Type.LiteMod ||
         type === Type.LiteLoader ||
-        type === Type.FabricMod
+        type === Type.FabricMod ||
+        type === NEOFORGE_MOD_TYPE
       ) {
         const o = !mdl.getRequired().value
         const e = ProcessBuilder.isModEnabled(
@@ -353,7 +376,7 @@ class ProcessBuilder {
               continue
             }
           }
-          if (type === Type.ForgeMod || type === Type.FabricMod) {
+          if (type === Type.ForgeMod || type === Type.FabricMod || type === NEOFORGE_MOD_TYPE) {
             fMods.push(mdl)
           } else {
             lMods.push(mdl)
@@ -373,15 +396,11 @@ class ProcessBuilder {
   }
 
   _getForgeLikeStoreRelative() {
-    return this.usingNeoForgeLoader
-      ? path.join('..', '..', 'common', 'neoforgestore')
-      : path.join('..', '..', 'common', 'modstore')
+    return path.join('..', '..', 'common', 'mods', 'forge')
   }
 
   _getForgeLikeStoreAbsolute() {
-    return this.usingNeoForgeLoader
-      ? path.join(this.commonDir, 'neoforgestore')
-      : path.join(this.commonDir, 'modstore')
+    return path.join(this.commonDir, 'mods', 'forge')
   }
 
   /**
@@ -476,9 +495,8 @@ class ProcessBuilder {
    * @param {Array.<Object>} mods An array of mods to add to the mod list.
    */
   constructModList(mods) {
-    // NeoForge 1.20.3+ no longer supports FML Maven mod lists. Pack modules
-    // are installed in the instance's `mods` directory and are discovered by
-    // NeoForge's normal mods-folder locator instead.
+    // NeoForge pack modules are supplied by the version-specific locator.
+    // Never restore the removed --fml.modLists/--fml.mavenRoots mechanism.
     if (this.usingNeoForgeLoader) {
       return []
     }
@@ -591,7 +609,7 @@ class ProcessBuilder {
     const argDiscovery = /\${*(.*)}/
 
     // JVM Arguments First
-    let args = this.vanillaManifest.arguments.jvm
+    let args = [...this.vanillaManifest.arguments.jvm]
 
     if (this.authUser.type === 'elyby') {
       const agent113 = elybyJavaAgentArg()
@@ -613,6 +631,18 @@ class ProcessBuilder {
             .replaceAll('${version_name}', this.modManifest.id)
         )
       }
+    }
+
+    if (this.usingNeoForgeLoader) {
+      if (!this.neoForgeLocator) {
+        throw new Error('NeoForge locator manifest was not prepared')
+      }
+      args = injectLocatorJvmArguments(
+        args,
+        this.neoForgeLocator.locatorJar,
+        this.neoForgeLocator.manifestPath,
+        this.neoForgeLocator.modRoot
+      )
     }
 
     if (this.usingNeoForgeLoader) {

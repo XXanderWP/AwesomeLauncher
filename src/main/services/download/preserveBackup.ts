@@ -15,14 +15,13 @@ export interface BackupEntry {
 
 /**
  * Backup instance files that must not be permanently overwritten by FullRepair:
- * existing config/** (when preserve enabled), options.txt / optionsshaders.txt, and user mods/.
- * logs/ and saves/ are skipped entirely (never walked).
- * options* and mods/ are always protected even when preserve is disabled.
+ * existing config/** (when preserve enabled) and options.txt / optionsshaders.txt.
+ * logs/, saves/, and user mods/ are skipped entirely (never walked).
+ * options* are always protected even when preserve is disabled.
  */
 export async function backupPreservedFiles(
   instanceDir: string,
-  enabled: boolean,
-  managedPackMods: ReadonlySet<string> = new Set()
+  enabled: boolean
 ): Promise<BackupEntry[]> {
   if (!(await fs.pathExists(instanceDir))) {
     return []
@@ -38,14 +37,13 @@ export async function backupPreservedFiles(
       const stat = await fs.stat(abs)
       const rel = normalizeGameRelativePath(path.relative(instanceDir, abs))
       if (stat.isDirectory()) {
-        if (rel === 'saves' || rel === 'logs') {
+        if (rel === 'saves' || rel === 'logs' || rel === 'mods') {
           continue
         }
         await walk(abs)
         continue
       }
       if (!shouldProtectExistingFromOverwrite(rel)) continue
-      if (managedPackMods.has(rel)) continue
       // Toggle only gates config/**; options* and mods/ stay protected.
       if (!enabled && isConfigPath(rel)) continue
       const tempPath = path.join(tempRoot, rel)
@@ -97,53 +95,4 @@ export async function vacatePreservedFiles(entries: BackupEntry[]): Promise<void
       // The subsequent repair will report a precise error if the file is locked.
     }
   }
-}
-
-/**
- * After FullRepair, drop anything under instance `mods/` that was not present
- * before the repair, except distribution-managed NeoForge mod files.
- * Only call when a pre-repair backup was taken.
- */
-export async function removeUnbackedUserMods(
-  instanceDir: string,
-  backup: BackupEntry[],
-  managedPackMods: ReadonlySet<string> = new Set()
-): Promise<number> {
-  const modsDir = path.join(instanceDir, 'mods')
-  if (!(await fs.pathExists(modsDir))) {
-    return 0
-  }
-
-  const kept = new Set(
-    backup
-      .map((e) => normalizeGameRelativePath(e.relativePath))
-      .filter((rel) => rel === 'mods' || rel.startsWith('mods/'))
-  )
-
-  let removed = 0
-
-  async function walk(dir: string): Promise<void> {
-    const items = await fs.readdir(dir)
-    for (const name of items) {
-      const abs = path.join(dir, name)
-      const stat = await fs.stat(abs)
-      const rel = normalizeGameRelativePath(path.relative(instanceDir, abs))
-      if (stat.isDirectory()) {
-        await walk(abs)
-        continue
-      }
-      if (kept.has(rel) || managedPackMods.has(rel)) {
-        continue
-      }
-      try {
-        await fs.remove(abs)
-        removed++
-      } catch {
-        // ignore locked files
-      }
-    }
-  }
-
-  await walk(modsDir)
-  return removed
 }
