@@ -75,11 +75,27 @@ export function instanceRelativePath(dataRelativePath: string, serverId: string)
 }
 
 export function shouldSkipRemoteModule(dataRelativePath: string, serverId: string): boolean {
+  return shouldSkipRemoteModuleWithManagedMods(dataRelativePath, serverId)
+}
+
+/**
+ * Pack modules in instance `mods/` are tracked separately from player mods.
+ * Their paths are supplied from the active distribution, so they may be
+ * repaired and removed when the pack changes without touching user files.
+ */
+export function shouldSkipRemoteModuleWithManagedMods(
+  dataRelativePath: string,
+  serverId: string,
+  managedPackMods: ReadonlySet<string> = new Set()
+): boolean {
   const instRel = instanceRelativePath(dataRelativePath, serverId)
   if (!instRel) {
     return false
   }
-  if (isFullyImmunePath(instRel) || isUserModsPath(instRel)) {
+  if (isFullyImmunePath(instRel)) {
+    return true
+  }
+  if (isUserModsPath(instRel) && !managedPackMods.has(instRel)) {
     return true
   }
   return false
@@ -94,6 +110,7 @@ export async function removeOrphanTrackedFiles(options: {
   serverId: string
   previousTrackedPaths: string[]
   currentTrackedPaths: Set<string>
+  allowManagedMods?: boolean
 }): Promise<number> {
   let removed = 0
   for (const rel of options.previousTrackedPaths) {
@@ -103,7 +120,11 @@ export async function removeOrphanTrackedFiles(options: {
     }
 
     const instRel = instanceRelativePath(normalized, options.serverId)
-    if (instRel && !canDeleteOrphanTrackedPath(instRel)) {
+    if (
+      instRel &&
+      !canDeleteOrphanTrackedPath(instRel) &&
+      !(options.allowManagedMods && isUserModsPath(instRel))
+    ) {
       continue
     }
 
@@ -130,10 +151,16 @@ export async function finalizeFileSync(options: {
   serverId: string
   server: any
   protectedRestored: number
+  managedPackMods?: ReadonlySet<string>
 }): Promise<SyncStats> {
   const previous = await loadServerFileIndex(options.dataDirectory, options.serverId)
   const modules = collectDistributionModules(options.server, options.dataDirectory).filter(
-    (m) => !shouldSkipRemoteModule(m.relativePath, options.serverId)
+    (m) =>
+      !shouldSkipRemoteModuleWithManagedMods(
+        m.relativePath,
+        options.serverId,
+        options.managedPackMods
+      )
   )
   const currentPaths = modules.map((m) => m.relativePath)
   const currentSet = new Set(currentPaths)
@@ -142,7 +169,8 @@ export async function finalizeFileSync(options: {
     dataDirectory: options.dataDirectory,
     serverId: options.serverId,
     previousTrackedPaths: previous?.trackedPaths || [],
-    currentTrackedPaths: currentSet
+    currentTrackedPaths: currentSet,
+    allowManagedMods: true
   })
 
   await saveServerFileIndex(options.dataDirectory, options.serverId, currentPaths)

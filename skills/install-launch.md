@@ -14,9 +14,9 @@ Current server example:
 ## Install pipeline
 
 1. Ensure Java matching server `javaOptions.supported` (download Adoptium/OpenJDK via helios-core if needed)
-2. Backup protected local instance files (`config/**`, `options*.txt`, user `mods/**`) when `preservePlayerConfigs` is enabled
-3. `FullRepair.verifyFiles` + `download` — missing files are always fetched; changed files in non-config folders are updated
-4. Restore protected backups; purge any new jars that FullRepair dropped into instance `mods/`
+2. Backup protected local instance files (`config/**`, `options*.txt`, user `mods/**`) when `preservePlayerConfigs` is enabled; distribution-managed NeoForge mods in `mods/` are excluded from that backup
+3. Temporarily vacate backed-up protected files, then run `FullRepair.verifyFiles` + `download` — this avoids Windows failures when replacing hidden config files
+4. Restore protected backups; retain distribution-managed NeoForge jars in instance `mods/` while purging unexpected files FullRepair dropped there
 5. Orphan cleanup using persisted server file index (`{dataDir}/sync-index/{serverId}.json`)
 6. Save the current distribution file list as the tracked set
 7. Load vanilla + Fabric version JSON and spawn ProcessBuilder
@@ -29,7 +29,7 @@ Current server example:
 | Removed from remote | Delete locally **only if** the path was previously tracked as server-managed |
 | Never tracked locally | Leave alone (player-added files stay) |
 | `logs/`, `saves/` | Full immunity — sync never walks, restores, or deletes |
-| Instance `mods/` | User mods — never synced; protect + purge forced installs |
+| Instance `mods/` | User mods are protected; distribution-managed NeoForge jars are tracked individually, repaired, and cannot be toggled or removed from the user-mod UI |
 | `config/` | Download if missing; **do not** overwrite when already present (except pack metadata like `config/crash_assistant/modlist.json`) |
 | Other folders (`resourcepacks`, `shaderpacks`, `datapacks`, `common/mods`, …) | Re-download when remote hash changes |
 | `options.txt`, `optionsshaders.txt`, `optionshaders.txt` | Never overwrite when present |

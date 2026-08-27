@@ -16,13 +16,15 @@ import {
 import {
   backupPreservedFiles,
   removeUnbackedUserMods,
-  restorePreservedFiles
+  restorePreservedFiles,
+  vacatePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
 import {
   collectDistributionModules,
   instanceRelativePath,
   removeOrphanTrackedFiles,
-  shouldSkipRemoteModule
+  shouldSkipRemoteModule,
+  shouldSkipRemoteModuleWithManagedMods
 } from '../../src/main/services/download/fileSync'
 import {
   loadServerFileIndex,
@@ -501,9 +503,10 @@ describe('preserveBackup', () => {
       'options.txt'
     ])
 
-    await fs.writeFile(path.join(root, 'options.txt'), 'OVERWRITTEN')
-    await fs.writeFile(path.join(root, 'config', 'demo.json'), 'OVERWRITTEN')
-    await fs.writeFile(path.join(root, 'mods', 'demo.jar'), 'OVERWRITTEN')
+    await vacatePreservedFiles(entries)
+    expect(await fs.pathExists(path.join(root, 'options.txt'))).toBe(false)
+    expect(await fs.pathExists(path.join(root, 'config', 'demo.json'))).toBe(false)
+    expect(await fs.pathExists(path.join(root, 'mods', 'demo.jar'))).toBe(false)
     await fs.outputFile(path.join(root, 'mods', 'forced-pack.jar'), 'forced')
 
     const restored = await restorePreservedFiles(entries)
@@ -529,6 +532,32 @@ describe('preserveBackup', () => {
     await fs.outputFile(path.join(root, 'mods', 'u.jar'), 'm')
     const entries = await backupPreservedFiles(root, false)
     expect(entries.map((e) => e.relativePath).sort()).toEqual(['mods/u.jar', 'options.txt'])
+    await fs.remove(root)
+  })
+
+  it('leaves distribution-managed NeoForge mods available to repair', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-managed-mod-'))
+    const managed = new Set(['mods/sodium-neoforge.jar'])
+    await fs.outputFile(path.join(root, 'mods', 'sodium-neoforge.jar'), 'pack')
+    await fs.outputFile(path.join(root, 'mods', 'player.jar'), 'player')
+    await fs.outputFile(path.join(root, 'mods', 'unexpected.jar'), 'unexpected')
+
+    const entries = await backupPreservedFiles(root, true, managed)
+    expect(entries.map((entry) => entry.relativePath).sort()).toEqual([
+      'mods/player.jar',
+      'mods/unexpected.jar'
+    ])
+
+    const removed = await removeUnbackedUserMods(
+      root,
+      entries.filter((entry) => entry.relativePath === 'mods/player.jar'),
+      managed
+    )
+    expect(removed).toBe(1)
+    expect(await fs.pathExists(path.join(root, 'mods', 'sodium-neoforge.jar'))).toBe(true)
+    expect(await fs.pathExists(path.join(root, 'mods', 'player.jar'))).toBe(true)
+    expect(await fs.pathExists(path.join(root, 'mods', 'unexpected.jar'))).toBe(false)
+
     await fs.remove(root)
   })
 })
@@ -571,6 +600,13 @@ describe('serverFileIndex + orphan sync', () => {
       'resourcepacks/old.zip'
     )
     expect(shouldSkipRemoteModule('instances/Prominence/mods/pack.jar', 'Prominence')).toBe(true)
+    expect(
+      shouldSkipRemoteModuleWithManagedMods(
+        'instances/Prominence/mods/pack.jar',
+        'Prominence',
+        new Set(['mods/pack.jar'])
+      )
+    ).toBe(false)
     expect(shouldSkipRemoteModule('instances/Prominence/logs/a.log', 'Prominence')).toBe(true)
 
     const removed = await removeOrphanTrackedFiles({
@@ -590,6 +626,27 @@ describe('serverFileIndex + orphan sync', () => {
     expect(await fs.pathExists(immune)).toBe(true)
     expect(await fs.pathExists(userMod)).toBe(true)
 
+    await fs.remove(dataDir)
+  })
+
+  it('removes an orphaned managed NeoForge mod without deleting ordinary user mods', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-managed-orphan-'))
+    const managed = path.join(dataDir, 'instances', 'Prominence', 'mods', 'old-pack.jar')
+    const user = path.join(dataDir, 'instances', 'Prominence', 'mods', 'player.jar')
+    await fs.outputFile(managed, 'pack')
+    await fs.outputFile(user, 'player')
+
+    const removed = await removeOrphanTrackedFiles({
+      dataDirectory: dataDir,
+      serverId: 'Prominence',
+      previousTrackedPaths: ['instances/Prominence/mods/old-pack.jar'],
+      currentTrackedPaths: new Set(),
+      allowManagedMods: true
+    })
+
+    expect(removed).toBe(1)
+    expect(await fs.pathExists(managed)).toBe(false)
+    expect(await fs.pathExists(user)).toBe(true)
     await fs.remove(dataDir)
   })
 

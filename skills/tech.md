@@ -36,7 +36,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 - Server row also shows distro pack name (e.g. `Prominence™ II: Hasturian Era`) under the live title when they differ
 - Real-time game logs + kill button while game runs
 - Compact `btn-sm` for logout / instance actions / running-game controls
-- Per-server **Mods** modal: user `mods/` (toggle/delete) then pack mods from `common/` (read-only)
+- Per-server **Mods** modal: user `mods/` (toggle/delete) and distribution-managed pack mods (read-only); NeoForge pack mods may live in the instance `mods/` directory and are distinguished by their exact distribution paths
 - Shared Java defaults in Settings; per-server overrides from Home
 - RAM inputs use slider + numeric field with validation against system memory
 - Linux Settings can install a user `.desktop` shortcut + icon for KDE/GNOME app menus

@@ -16,9 +16,14 @@ import type { DistroService } from '../distro/DistroService'
 import {
   backupPreservedFiles,
   removeUnbackedUserMods,
-  restorePreservedFiles
+  restorePreservedFiles,
+  vacatePreservedFiles
 } from './preserveBackup'
-import { finalizeFileSync } from './fileSync'
+import {
+  collectDistributionModules,
+  finalizeFileSync,
+  instanceRelativePath
+} from './fileSync'
 
 export interface InstallResult {
   versionData: any
@@ -136,7 +141,15 @@ export class InstallService {
     await fs.ensureDir(instanceDir)
 
     const preserve = this.config.getPreservePlayerConfigs()
-    const backup = await backupPreservedFiles(instanceDir, preserve)
+    const managedPackMods = new Set(
+      collectDistributionModules(server, dataDir)
+        .map((module) => instanceRelativePath(module.relativePath, serverId))
+        .filter((relativePath): relativePath is string =>
+          relativePath != null && (relativePath === 'mods' || relativePath.startsWith('mods/'))
+        )
+    )
+    const backup = await backupPreservedFiles(instanceDir, preserve, managedPackMods)
+    await vacatePreservedFiles(backup)
 
     const fullRepair = new FullRepair(
       commonDir,
@@ -148,6 +161,7 @@ export class InstallService {
 
     fullRepair.spawnReceiver()
 
+    let restoredConfigs = 0
     try {
       this.emitProgress({
         phase: 'validate',
@@ -178,14 +192,15 @@ export class InstallService {
         })
       }
 
-      const restoredConfigs = await restorePreservedFiles(backup)
-      await removeUnbackedUserMods(instanceDir, backup)
+      restoredConfigs = await restorePreservedFiles(backup)
+      await removeUnbackedUserMods(instanceDir, backup, managedPackMods)
 
       const syncStats = await finalizeFileSync({
         dataDirectory: dataDir,
         serverId,
         server,
-        protectedRestored: restoredConfigs
+        protectedRestored: restoredConfigs,
+        managedPackMods
       })
 
       this.emitProgress({
@@ -200,7 +215,15 @@ export class InstallService {
         trackedCount: syncStats.trackedCount
       }
     } finally {
-      fullRepair.destroyReceiver()
+      if (restoredConfigs === 0 && backup.length > 0) {
+        await restorePreservedFiles(backup)
+      }
+      // helios-core disconnects its receiver before rejecting a failed repair.
+      // Its unconditional second disconnect would mask the original error with
+      // ERR_IPC_DISCONNECTED.
+      if (fullRepair.childProcess?.connected) {
+        fullRepair.destroyReceiver()
+      }
     }
   }
 

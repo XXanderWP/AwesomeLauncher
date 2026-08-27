@@ -476,6 +476,13 @@ class ProcessBuilder {
    * @param {Array.<Object>} mods An array of mods to add to the mod list.
    */
   constructModList(mods) {
+    // NeoForge 1.20.3+ no longer supports FML Maven mod lists. Pack modules
+    // are installed in the instance's `mods` directory and are discovered by
+    // NeoForge's normal mods-folder locator instead.
+    if (this.usingNeoForgeLoader) {
+      return []
+    }
+
     const entries = mods.map((mod) => {
       return this.usingFabricLoader ? mod.getPath() : mod.getExtensionlessMavenIdentifier()
     })
@@ -489,13 +496,11 @@ class ProcessBuilder {
       return writeBuffer ? ['--fabric.addMods', `@${this.forgeModListFile}`] : []
     }
 
-    // Forge/NeoForge require maven roots/mod list wiring even with an empty
-    // list, otherwise loader roots can differ between "mods" and "no mods".
+    // Forge requires maven roots/mod list wiring even with an empty list,
+    // otherwise loader roots can differ between "mods" and "no mods".
     return [
       '--fml.mavenRoots',
-      this.usingNeoForgeLoader
-        ? `${this._getForgeLikeStoreRelative()},${path.join('..', '..', 'common', 'modstore')},${path.join('..', '..', 'common', 'libraries')}`
-        : this._getForgeLikeStoreRelative(),
+      this._getForgeLikeStoreRelative(),
       '--fml.modLists',
       this.forgeModListFile
     ]
@@ -774,32 +779,6 @@ class ProcessBuilder {
 
     // Forge Specific Arguments
     args = args.concat(this.modManifest.arguments.game)
-
-    if (this.usingNeoForgeLoader) {
-      const mavenRootsFlag = '--fml.mavenRoots'
-      const modstoreRoot = this._getForgeLikeStoreRelative()
-      const legacyModstoreRoot = path.join('..', '..', 'common', 'modstore')
-      const librariesRoot = path.join('..', '..', 'common', 'libraries')
-      for (let i = 0; i < args.length - 1; i++) {
-        if (args[i] !== mavenRootsFlag || typeof args[i + 1] !== 'string') {
-          continue
-        }
-        const roots = args[i + 1]
-          .split(',')
-          .map((x) => x.trim())
-          .filter((x) => x.length > 0)
-        if (!roots.includes(modstoreRoot)) {
-          roots.push(modstoreRoot)
-        }
-        if (!roots.includes(legacyModstoreRoot)) {
-          roots.push(legacyModstoreRoot)
-        }
-        if (!roots.includes(librariesRoot)) {
-          roots.push(librariesRoot)
-        }
-        args[i + 1] = roots.join(',')
-      }
-    }
 
     // For non-Microsoft auth flows (elyby/mojang), xuid/clientId are not applicable.
     // Passing empty xuid can break argument parsing on some modern runtimes.

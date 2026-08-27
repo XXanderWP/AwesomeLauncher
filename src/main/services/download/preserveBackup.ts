@@ -21,7 +21,8 @@ export interface BackupEntry {
  */
 export async function backupPreservedFiles(
   instanceDir: string,
-  enabled: boolean
+  enabled: boolean,
+  managedPackMods: ReadonlySet<string> = new Set()
 ): Promise<BackupEntry[]> {
   if (!(await fs.pathExists(instanceDir))) {
     return []
@@ -44,6 +45,7 @@ export async function backupPreservedFiles(
         continue
       }
       if (!shouldProtectExistingFromOverwrite(rel)) continue
+      if (managedPackMods.has(rel)) continue
       // Toggle only gates config/**; options* and mods/ stay protected.
       if (!enabled && isConfigPath(rel)) continue
       const tempPath = path.join(tempRoot, rel)
@@ -83,13 +85,29 @@ export async function restorePreservedFiles(entries: BackupEntry[]): Promise<num
 }
 
 /**
+ * Temporarily clear protected files after their backup. FullRepair otherwise
+ * attempts to replace them directly; Windows rejects replacing some hidden
+ * config files (for example euphoria_patcher/.data.json).
+ */
+export async function vacatePreservedFiles(entries: BackupEntry[]): Promise<void> {
+  for (const entry of entries) {
+    try {
+      await fs.remove(entry.absolutePath)
+    } catch {
+      // The subsequent repair will report a precise error if the file is locked.
+    }
+  }
+}
+
+/**
  * After FullRepair, drop anything under instance `mods/` that was not present
- * before the repair (pack must not install into the user-mods folder).
+ * before the repair, except distribution-managed NeoForge mod files.
  * Only call when a pre-repair backup was taken.
  */
 export async function removeUnbackedUserMods(
   instanceDir: string,
-  backup: BackupEntry[]
+  backup: BackupEntry[],
+  managedPackMods: ReadonlySet<string> = new Set()
 ): Promise<number> {
   const modsDir = path.join(instanceDir, 'mods')
   if (!(await fs.pathExists(modsDir))) {
@@ -114,7 +132,7 @@ export async function removeUnbackedUserMods(
         await walk(abs)
         continue
       }
-      if (kept.has(rel)) {
+      if (kept.has(rel) || managedPackMods.has(rel)) {
         continue
       }
       try {

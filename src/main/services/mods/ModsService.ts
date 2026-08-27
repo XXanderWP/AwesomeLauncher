@@ -21,7 +21,7 @@ import {
   type CachedModMeta
 } from './modsCacheStore'
 
-const MOD_TYPES = new Set(['FabricMod', 'ForgeMod', 'LiteMod', 'LiteLoader'])
+const MOD_TYPES = new Set(['FabricMod', 'ForgeMod', 'LiteMod', 'LiteLoader', 'File'])
 
 interface CachedModsList {
   signature: string
@@ -45,9 +45,12 @@ export class ModsService {
     this.resetIfDataDirChanged(dataDir)
 
     const instanceModsDir = path.join(instanceDirectory(dataDir, serverId), 'mods')
-    const userPaths = await listModFilesInDirectory(instanceModsDir)
-    const commonPaths = await this.listCommonModPaths(serverId, dataDir)
-    const signature = await this.buildSignature([...userPaths, ...commonPaths])
+    const packPaths = await this.listPackModPaths(serverId, dataDir)
+    const packPathSet = new Set(packPaths.map((filePath) => path.resolve(filePath)))
+    const userPaths = (await listModFilesInDirectory(instanceModsDir)).filter(
+      (filePath) => !packPathSet.has(path.resolve(filePath))
+    )
+    const signature = await this.buildSignature([...userPaths, ...packPaths])
 
     const memoryHit = this.listCache.get(serverId)
     if (memoryHit && memoryHit.signature === signature) {
@@ -66,7 +69,7 @@ export class ModsService {
       userPaths.map((filePath) => this.toModInfo(filePath, 'user'))
     )
     const commonMods = await Promise.all(
-      commonPaths.map((filePath) => this.toModInfo(filePath, 'common'))
+      packPaths.map((filePath) => this.toModInfo(filePath, 'common'))
     )
 
     const payload: ServerModsPayload = {
@@ -202,7 +205,7 @@ export class ModsService {
     return parts.sort().join('\n')
   }
 
-  private async listCommonModPaths(serverId: string, dataDir: string): Promise<string[]> {
+  private async listPackModPaths(serverId: string, dataDir: string): Promise<string[]> {
     const { raw: distro } = await this.distro.get()
     const server =
       distro.getServerById?.(serverId) ||
@@ -213,6 +216,7 @@ export class ModsService {
 
     const modules = this.collectModModules(server.modules || [])
     const commonRoot = path.resolve(commonDirectory(dataDir))
+    const instanceModsRoot = path.resolve(path.join(instanceDirectory(dataDir, serverId), 'mods'))
     const out: string[] = []
     const seen = new Set<string>()
 
@@ -225,7 +229,11 @@ export class ModsService {
       }
       if (!absolutePath || typeof absolutePath !== 'string') continue
       const resolved = path.resolve(absolutePath)
-      if (!resolved.startsWith(commonRoot + path.sep) && resolved !== commonRoot) {
+      if (!isModArchiveFile(path.basename(resolved))) continue
+      if (
+        !resolved.startsWith(commonRoot + path.sep) &&
+        !resolved.startsWith(instanceModsRoot + path.sep)
+      ) {
         continue
       }
       if (!(await fs.pathExists(resolved))) continue
@@ -336,6 +344,10 @@ export class ModsService {
     }
     if (!(await fs.pathExists(resolved))) {
       throw new Error('Mod file not found')
+    }
+    const packPaths = await this.listPackModPaths(serverId, dataDir)
+    if (packPaths.some((packPath) => path.resolve(packPath) === resolved)) {
+      throw new Error('Pack-managed mods cannot be changed from the user mods list')
     }
     return resolved
   }
