@@ -31,19 +31,19 @@ export function resolveLinuxExecPath(
 }
 
 export function linuxApplicationsDir(home = os.homedir()): string {
-  return path.join(home, '.local', 'share', 'applications')
+  return path.posix.join(home, '.local', 'share', 'applications')
 }
 
 export function linuxIconsDir(home = os.homedir()): string {
-  return path.join(home, '.local', 'share', 'icons', 'hicolor', '256x256', 'apps')
+  return path.posix.join(home, '.local', 'share', 'icons', 'hicolor', '256x256', 'apps')
 }
 
 export function linuxDesktopFilePath(home = os.homedir()): string {
-  return path.join(linuxApplicationsDir(home), LINUX_DESKTOP_FILENAME)
+  return path.posix.join(linuxApplicationsDir(home), LINUX_DESKTOP_FILENAME)
 }
 
 export function linuxIconFilePath(home = os.homedir()): string {
-  return path.join(linuxIconsDir(home), LINUX_ICON_FILENAME)
+  return path.posix.join(linuxIconsDir(home), LINUX_ICON_FILENAME)
 }
 
 export function resolveBundledIconPath(): string {

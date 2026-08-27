@@ -19,11 +19,7 @@ import {
   restorePreservedFiles,
   vacatePreservedFiles
 } from './preserveBackup'
-import {
-  collectDistributionModules,
-  finalizeFileSync,
-  instanceRelativePath
-} from './fileSync'
+import { collectDistributionModules, finalizeFileSync, instanceRelativePath } from './fileSync'
 
 export interface InstallResult {
   versionData: any
@@ -144,8 +140,9 @@ export class InstallService {
     const managedPackMods = new Set(
       collectDistributionModules(server, dataDir)
         .map((module) => instanceRelativePath(module.relativePath, serverId))
-        .filter((relativePath): relativePath is string =>
-          relativePath != null && (relativePath === 'mods' || relativePath.startsWith('mods/'))
+        .filter(
+          (relativePath): relativePath is string =>
+            relativePath != null && (relativePath === 'mods' || relativePath.startsWith('mods/'))
         )
     )
     const backup = await backupPreservedFiles(instanceDir, preserve, managedPackMods)

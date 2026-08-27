@@ -73,6 +73,8 @@ jest.mock('helios-core/mojang', () => ({
 describe('ConfigService', () => {
   it('loads defaults and persists accounts', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-cfg-'))
+    const previousAppData = process.env.APPDATA
+    process.env.APPDATA = dir
     const service = new ConfigService(dir)
     const cfg = await service.load()
     expect(cfg.clientToken).toHaveLength(32)
@@ -113,6 +115,8 @@ describe('ConfigService', () => {
     const reloaded = new ConfigService(dir)
     await reloaded.load()
     expect(reloaded.get().settings.launcher.language).toBe('ru')
+    if (previousAppData == null) delete process.env.APPDATA
+    else process.env.APPDATA = previousAppData
     await fs.remove(dir)
   })
 
@@ -486,9 +490,10 @@ describe('serverDisplayName', () => {
 
 describe('nativeExtract', () => {
   it('keeps natives under the temp dir even when zip entry has a leading slash', () => {
-    const dest = resolveNativeExtractPath('/tmp/natives', '/libglfw.so')
-    expect(dest).toBe(path.join('/tmp/natives', 'libglfw.so'))
-    expect(dest.startsWith('/tmp/natives')).toBe(true)
+    const nativeRoot = path.join(os.tmpdir(), 'natives')
+    const dest = resolveNativeExtractPath(nativeRoot, '/libglfw.so')
+    expect(dest).toBe(path.join(nativeRoot, 'libglfw.so'))
+    expect(dest.startsWith(nativeRoot)).toBe(true)
   })
 
   it('uses basename for nested zip entries', () => {
@@ -624,6 +629,7 @@ describe('launchEnv', () => {
   })
 
   it('spawns Linux Minecraft through env -i for AppImage isolation', () => {
+    if (process.platform !== 'linux') return
     const child = spawnMinecraftProcess(
       '/bin/true',
       [],

@@ -23,6 +23,14 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'json-summary'],
+  coverageThreshold: {
+    global: {
+      lines: 60,
+      statements: 60,
+      functions: 60,
+      branches: 50
+    }
+  },
   moduleNameMapper: {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
     '^electron$': '<rootDir>/tests/mocks/electron.ts'

@@ -61,12 +61,12 @@ export function macArchLabel(arch: string = process.arch): 'arm64' | 'x64' {
 }
 
 export function resolveMacAppBundlePath(execPath: string = process.execPath): string {
-  const parts = execPath.split(path.sep)
+  const parts = execPath.split(path.posix.sep)
   const appIndex = parts.findIndex((part) => part.endsWith('.app'))
   if (appIndex >= 0) {
-    return parts.slice(0, appIndex + 1).join(path.sep)
+    return parts.slice(0, appIndex + 1).join(path.posix.sep)
   }
-  return path.join('/Applications', MAC_APP_NAME)
+  return path.posix.join('/Applications', MAC_APP_NAME)
 }
 
 export function pickMacDmgAsset(
