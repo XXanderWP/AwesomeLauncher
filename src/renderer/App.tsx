@@ -122,27 +122,44 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let cancelled = false
+
+    async function loadDistro(cfg: AppConfig): Promise<void> {
+      try {
+        const distro = await window.awesomeAPI
+          .refreshDistro()
+          .catch(() => window.awesomeAPI.getDistro())
+        if (cancelled) return
+
+        setServers(distro.servers)
+        if (!cfg.selectedServerId && distro.servers.length > 0) {
+          const main = distro.servers.find((s) => s.mainServer) || distro.servers[0]
+          const next = await window.awesomeAPI.updateConfig({ selectedServerId: main.id })
+          if (!cancelled) setConfig(next)
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      }
+    }
+
     async function boot(): Promise<void> {
       try {
-        const [cfg, ver, locale, distro, gState, gLogs, uStatus, memory, plat, legacyOffer] =
-          await Promise.all([
-            window.awesomeAPI.getConfig(),
-            window.awesomeAPI.getVersion(),
-            window.awesomeAPI.getSystemLocale(),
-            window.awesomeAPI.refreshDistro().catch(() => window.awesomeAPI.getDistro()),
-            window.awesomeAPI.getGameState(),
-            window.awesomeAPI.getGameLogs(),
-            window.awesomeAPI.getUpdateStatus(),
-            window.awesomeAPI.getSystemMemory(),
-            window.awesomeAPI.getPlatform(),
-            window.awesomeAPI.getLegacyDataOffer()
-          ])
+        const cfg = await window.awesomeAPI.getConfig()
+
+        const [ver, locale, gState, gLogs, uStatus, memory, plat, legacyOffer] = await Promise.all([
+          window.awesomeAPI.getVersion(),
+          window.awesomeAPI.getSystemLocale(),
+          window.awesomeAPI.getGameState(),
+          window.awesomeAPI.getGameLogs(),
+          window.awesomeAPI.getUpdateStatus(),
+          window.awesomeAPI.getSystemMemory(),
+          window.awesomeAPI.getPlatform(),
+          window.awesomeAPI.getLegacyDataOffer()
+        ])
         if (cancelled) return
         const lang = resolveLanguage(cfg.settings.launcher.language, locale)
         setLanguage(lang)
         setConfig(cfg)
         setVersion(ver)
-        setServers(distro.servers)
         setGameState(gState)
         setLogs(gLogs)
         setUpdateStatus(uStatus)
@@ -154,11 +171,9 @@ export function App(): React.JSX.Element {
         setLangTick((x) => x + 1)
         setReady(true)
 
-        if (!cfg.selectedServerId && distro.servers.length > 0) {
-          const main = distro.servers.find((s) => s.mainServer) || distro.servers[0]
-          const next = await window.awesomeAPI.updateConfig({ selectedServerId: main.id })
-          if (!cancelled) setConfig(next)
-        }
+        // The distribution endpoint can be temporarily unreachable. Do not let its request
+        // hold the whole launcher on the splash screen; it updates the server list in background.
+        void loadDistro(cfg)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err))

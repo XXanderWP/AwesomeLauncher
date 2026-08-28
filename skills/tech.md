@@ -23,6 +23,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 
 - `ConfigService` persists `config.json` in Electron `userData`
 - Game files live in configurable `dataDirectory` (default `~/.awesomelauncher` / `%APPDATA%\.awesomelauncher`)
+- Launcher boot is independent of distribution loading: the UI opens first, while the remote server list refreshes in the background so an unavailable file server cannot keep the splash screen open indefinitely.
 - On first launch with an empty data dir, offers one-time reuse of legacy Helios folder (`.helioslauncher`)
 - `DistroService` loads Helios-compatible `distribution.json`
 - `InstallService` uses helios-core `FullRepair` + Java discovery, then applies tracked file-sync rules (`syncRules`, `sync-index/`)
