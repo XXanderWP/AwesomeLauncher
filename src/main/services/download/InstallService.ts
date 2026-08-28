@@ -15,9 +15,10 @@ import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
 import { backupPreservedFiles, restorePreservedFiles, vacatePreservedFiles } from './preserveBackup'
 import {
-  assertDistributionDoesNotOwnUserMods,
+  findDistributionUserModsPaths,
   finalizeFileSync,
-  migrateLegacyPackMods
+  migrateLegacyPackMods,
+  runWithUserModsOmittedFromDistroCache
 } from './fileSync'
 
 export interface InstallResult {
@@ -135,13 +136,24 @@ export class InstallService {
     await fs.ensureDir(commonDir)
     await fs.ensureDir(instanceDir)
 
-    assertDistributionDoesNotOwnUserMods(server, dataDir, serverId)
+    const ownedUserMods = findDistributionUserModsPaths(server, dataDir, serverId)
+    if (ownedUserMods.length > 0) {
+      const preview = ownedUserMods.slice(0, 5).join(', ')
+      const extra = ownedUserMods.length > 5 ? ` (+${ownedUserMods.length - 5} more)` : ''
+      console.warn(
+        `[Install] Distribution still resolves ${ownedUserMods.length} module(s) into user-owned instance/mods (${preview}${extra}). Skipping FullRepair for those paths so player mods are not overwritten. Regenerate the distro with FabricMod/ForgeMod/NeoForgeMod.`
+      )
+    }
     await migrateLegacyPackMods(server, dataDir, serverId)
 
     const preserve = this.config.getPreservePlayerConfigs()
     const backup = await backupPreservedFiles(instanceDir, preserve)
     await vacatePreservedFiles(backup)
 
+    const distroFile = path.join(
+      launcherDir,
+      this.distro.getApiInstance().isDevMode() ? 'distribution_dev.json' : 'distribution.json'
+    )
     const fullRepair = new FullRepair(
       commonDir,
       instancesDirectory(dataDir),
@@ -160,28 +172,38 @@ export class InstallService {
         message: 'Validating file integrity'
       })
 
-      const invalidFileCount = await fullRepair.verifyFiles((percent) => {
-        this.emitProgress({
-          phase: 'validate',
-          percent,
-          message: 'Validating file integrity'
-        })
-      })
-
-      if (invalidFileCount > 0) {
-        this.emitProgress({
-          phase: 'download',
-          percent: 0,
-          message: `Downloading ${invalidFileCount} files`
-        })
-        await fullRepair.download((percent) => {
-          this.emitProgress({
-            phase: 'download',
-            percent,
-            message: 'Downloading game files'
+      const { result: invalidFileCount } = await runWithUserModsOmittedFromDistroCache({
+        distroFile,
+        heliosDistribution: distro,
+        dataDirectory: dataDir,
+        serverId,
+        action: async () => {
+          const invalid = await fullRepair.verifyFiles((percent) => {
+            this.emitProgress({
+              phase: 'validate',
+              percent,
+              message: 'Validating file integrity'
+            })
           })
-        })
-      }
+
+          if (invalid > 0) {
+            this.emitProgress({
+              phase: 'download',
+              percent: 0,
+              message: `Downloading ${invalid} files`
+            })
+            await fullRepair.download((percent) => {
+              this.emitProgress({
+                phase: 'download',
+                percent,
+                message: 'Downloading game files'
+              })
+            })
+          }
+
+          return invalid
+        }
+      })
 
       restoredConfigs = await restorePreservedFiles(backup)
 

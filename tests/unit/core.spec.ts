@@ -19,11 +19,13 @@ import {
   vacatePreservedFiles
 } from '../../src/main/services/download/preserveBackup'
 import {
-  assertDistributionDoesNotOwnUserMods,
   collectDistributionModules,
+  findDistributionUserModsPaths,
   instanceRelativePath,
   migrateLegacyPackMods,
+  omitUserModsFromRawDistribution,
   removeOrphanTrackedFiles,
+  runWithUserModsOmittedFromDistroCache,
   shouldSkipRemoteModule
 } from '../../src/main/services/download/fileSync'
 import {
@@ -533,7 +535,7 @@ describe('serverFileIndex + orphan sync', () => {
   const os = require('os')
   const path = require('path')
 
-  it('rejects a distribution that resolves a module into user mods', () => {
+  it('does not abort when a distribution still resolves a module into user mods', () => {
     const dataDir = path.resolve('/data')
     const server = {
       modules: [
@@ -544,7 +546,119 @@ describe('serverFileIndex + orphan sync', () => {
         }
       ]
     }
-    expect(() => assertDistributionDoesNotOwnUserMods(server, dataDir, 'srv')).toThrow(/user-owned/)
+    expect(findDistributionUserModsPaths(server, dataDir, 'srv')).toEqual(['mods/pack.jar'])
+    expect(() => findDistributionUserModsPaths(server, dataDir, 'srv')).not.toThrow()
+  })
+
+  it('omits user-mods File modules from the distro FullRepair will load', () => {
+    const dataDir = path.resolve('/data')
+    const rawPack = {
+      type: 'File',
+      artifact: { path: 'mods/pack.jar' },
+      subModules: [
+        {
+          type: 'File',
+          artifact: { path: 'config/keep.json' }
+        }
+      ]
+    }
+    const rawConfig = {
+      type: 'File',
+      artifact: { path: 'config/options.json' }
+    }
+    const raw = {
+      servers: [{ id: 'srv', modules: [rawPack, rawConfig] }]
+    }
+    const helios = {
+      getServerById: () => ({
+        modules: [
+          {
+            getPath: () => path.join(dataDir, 'instances', 'srv', 'mods', 'pack.jar'),
+            rawModule: rawPack,
+            subModules: [
+              {
+                getPath: () => path.join(dataDir, 'instances', 'srv', 'config', 'keep.json'),
+                rawModule: rawPack.subModules[0],
+                subModules: []
+              }
+            ]
+          },
+          {
+            getPath: () => path.join(dataDir, 'instances', 'srv', 'config', 'options.json'),
+            rawModule: rawConfig,
+            subModules: []
+          }
+        ]
+      })
+    }
+
+    const { distribution, omittedPaths } = omitUserModsFromRawDistribution(
+      raw,
+      helios,
+      dataDir,
+      'srv'
+    )
+    expect(omittedPaths).toEqual(['mods/pack.jar'])
+    expect(distribution.servers[0].modules.map((m: any) => m.artifact.path).sort()).toEqual([
+      'config/keep.json',
+      'config/options.json'
+    ])
+  })
+
+  it('restores the distro cache after temporarily omitting user-mods modules', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-distro-skip-'))
+    const distroFile = path.join(dataDir, 'distribution.json')
+    const original = {
+      version: '1.0.0',
+      servers: [
+        {
+          id: 'srv',
+          modules: [{ type: 'File', artifact: { path: 'mods/pack.jar', MD5: 'abc' } }]
+        }
+      ]
+    }
+    await fs.writeJson(distroFile, original)
+    const helios = {
+      getServerById: () => ({
+        modules: [
+          {
+            getPath: () => path.join(dataDir, 'instances', 'srv', 'mods', 'pack.jar'),
+            rawModule: original.servers[0].modules[0],
+            subModules: []
+          }
+        ]
+      })
+    }
+
+    let during: any
+    const { omittedPaths } = await runWithUserModsOmittedFromDistroCache({
+      distroFile,
+      heliosDistribution: helios,
+      dataDirectory: dataDir,
+      serverId: 'srv',
+      action: async () => {
+        during = await fs.readJson(distroFile)
+        return 0
+      }
+    })
+
+    expect(omittedPaths).toEqual(['mods/pack.jar'])
+    expect(during.servers[0].modules).toEqual([])
+    expect(await fs.readJson(distroFile)).toEqual(original)
+
+    await expect(
+      runWithUserModsOmittedFromDistroCache({
+        distroFile,
+        heliosDistribution: helios,
+        dataDirectory: dataDir,
+        serverId: 'srv',
+        action: async () => {
+          throw new Error('repair failed')
+        }
+      })
+    ).rejects.toThrow('repair failed')
+    expect(await fs.readJson(distroFile)).toEqual(original)
+    await fs.remove(dataDir)
   })
 
   it('moves hash-matching legacy NeoForge pack mods out of instance mods', async () => {
@@ -571,6 +685,78 @@ describe('serverFileIndex + orphan sync', () => {
           rawModule: {
             type: 'NeoForgeMod',
             artifact: { MD5: hash, url: 'https://example.test/neoforgemods/required/pack.jar' }
+          },
+          getPath: () => target,
+          subModules: []
+        }
+      ]
+    }
+
+    expect(await migrateLegacyPackMods(server, dataDir, 'srv')).toBe(1)
+    expect(await fs.pathExists(legacy)).toBe(false)
+    expect(await fs.readFile(target, 'utf8')).toBe('pack')
+    expect(await fs.readFile(user, 'utf8')).toBe('user')
+    await fs.remove(dataDir)
+  })
+
+  it('does not move leftover jars when the distro still targets instance mods', async () => {
+    const crypto = require('crypto')
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-mod-legacy-distro-'))
+    const legacy = path.join(dataDir, 'instances', 'srv', 'mods', 'pack.jar')
+    const user = path.join(dataDir, 'instances', 'srv', 'mods', 'user.jar')
+    await fs.outputFile(legacy, 'pack')
+    await fs.outputFile(user, 'user')
+    const hash = crypto.createHash('md5').update('pack').digest('hex')
+    const server = {
+      modules: [
+        {
+          rawModule: {
+            type: 'File',
+            artifact: {
+              MD5: hash,
+              path: 'mods/pack.jar',
+              url: 'https://example.test/mods/pack.jar'
+            }
+          },
+          getPath: () => legacy,
+          subModules: []
+        }
+      ]
+    }
+
+    expect(await migrateLegacyPackMods(server, dataDir, 'srv')).toBe(0)
+    expect(await fs.readFile(legacy, 'utf8')).toBe('pack')
+    expect(await fs.readFile(user, 'utf8')).toBe('user')
+    await fs.remove(dataDir)
+  })
+
+  it('moves hash-matching leftover Fabric pack mods out of instance mods', async () => {
+    const crypto = require('crypto')
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-fabric-migration-'))
+    const legacy = path.join(dataDir, 'instances', 'srv', 'mods', 'fabric-pack.jar')
+    const target = path.join(
+      dataDir,
+      'common',
+      'mods',
+      'fabric',
+      'generated',
+      'pack',
+      '1',
+      'pack-1.jar'
+    )
+    const user = path.join(dataDir, 'instances', 'srv', 'mods', 'user.jar')
+    await fs.outputFile(legacy, 'pack')
+    await fs.outputFile(user, 'user')
+    const hash = crypto.createHash('md5').update('pack').digest('hex')
+    const server = {
+      modules: [
+        {
+          rawModule: {
+            type: 'FabricMod',
+            artifact: {
+              MD5: hash,
+              url: 'https://example.test/fabricmods/required/fabric-pack.jar'
+            }
           },
           getPath: () => target,
           subModules: []
@@ -640,9 +826,32 @@ describe('serverFileIndex + orphan sync', () => {
     await fs.remove(dataDir)
   })
 
-  it('removes an orphaned managed NeoForge mod without deleting ordinary user mods', async () => {
+  it('never deletes instance mods even when they were previously tracked', async () => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-managed-orphan-'))
-    const managed = path.join(dataDir, 'instances', 'Prominence', 'mods', 'old-pack.jar')
+    const leftoverPack = path.join(dataDir, 'instances', 'Prominence', 'mods', 'old-pack.jar')
+    const user = path.join(dataDir, 'instances', 'Prominence', 'mods', 'player.jar')
+    await fs.outputFile(leftoverPack, 'pack')
+    await fs.outputFile(user, 'player')
+
+    const removed = await removeOrphanTrackedFiles({
+      dataDirectory: dataDir,
+      serverId: 'Prominence',
+      previousTrackedPaths: [
+        'instances/Prominence/mods/old-pack.jar',
+        'instances/Prominence/mods/player.jar'
+      ],
+      currentTrackedPaths: new Set()
+    })
+
+    expect(removed).toBe(0)
+    expect(await fs.pathExists(leftoverPack)).toBe(true)
+    expect(await fs.pathExists(user)).toBe(true)
+    await fs.remove(dataDir)
+  })
+
+  it('removes an orphaned managed NeoForge mod from the central store without deleting instance mods', async () => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-common-orphan-'))
+    const managed = path.join(dataDir, 'common', 'mods', 'neoforge', 'old-pack.jar')
     const user = path.join(dataDir, 'instances', 'Prominence', 'mods', 'player.jar')
     await fs.outputFile(managed, 'pack')
     await fs.outputFile(user, 'player')
@@ -650,9 +859,11 @@ describe('serverFileIndex + orphan sync', () => {
     const removed = await removeOrphanTrackedFiles({
       dataDirectory: dataDir,
       serverId: 'Prominence',
-      previousTrackedPaths: ['instances/Prominence/mods/old-pack.jar'],
-      currentTrackedPaths: new Set(),
-      allowManagedMods: true
+      previousTrackedPaths: [
+        'common/mods/neoforge/old-pack.jar',
+        'instances/Prominence/mods/player.jar'
+      ],
+      currentTrackedPaths: new Set()
     })
 
     expect(removed).toBe(1)

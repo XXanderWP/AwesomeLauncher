@@ -14,7 +14,7 @@ Current server example:
 ## Install pipeline
 
 1. Ensure Java matching server `javaOptions.supported` (download Adoptium/OpenJDK via helios-core if needed)
-2. Reject a legacy/malformed distro if any module resolves into user-owned `instance/mods`; migrate exact hash-matching pack JARs left by older launcher versions into the central store
+2. Warn (do not abort) if a legacy distro still resolves modules into user-owned `instance/mods`; FullRepair skips those paths so player mods are never overwritten. Migrate exact hash-matching pack JARs left by older launcher versions into the central store
 3. Backup protected local instance files (`config/**`, `options*.txt`) when `preservePlayerConfigs` is enabled; `mods/`, `logs/`, and `saves/` are never walked
 4. Temporarily vacate backed-up protected files, then run `FullRepair.verifyFiles` + `download` — this avoids Windows failures when replacing hidden config files
 5. Restore protected backups
@@ -29,7 +29,7 @@ Current server example:
 | Missing locally | Always download |
 | Removed from remote | Delete locally **only if** the path was previously tracked as server-managed |
 | Never tracked locally | Leave alone (player-added files stay) |
-| `logs/`, `saves/`, instance `mods/` | Full immunity — sync never walks, backs up, restores, overwrites, or deletes |
+| `logs/`, `saves/`, instance `mods/` | Full immunity — sync never walks, backs up, restores, overwrites, or deletes. Leftover pack JARs under instance `mods/` are moved by hash-matching migration, not deleted as orphans |
 | `common/mods/{fabric,forge,neoforge}/` | Distribution-managed mods; hash-verified and read-only in the Mods UI |
 | `config/` | Download if missing; **do not** overwrite when already present (except pack metadata like `config/crash_assistant/modlist.json`) |
 | Other folders (`resourcepacks`, `shaderpacks`, `datapacks`, `common/mods`, …) | Re-download when remote hash changes |
