@@ -16,7 +16,7 @@ export function normalizeGameRelativePath(input: string): string {
 }
 
 /** Folders under the instance that sync must never read or write. */
-export const FULLY_IMMUNE_DIRS = ['logs', 'saves'] as const
+export const FULLY_IMMUNE_DIRS = ['logs', 'saves', 'mods'] as const
 
 /** Instance folder for player-added mods (not pack FabricMods in common/). */
 export const USER_MODS_DIR = 'mods'

@@ -14,6 +14,7 @@ MIT (`LICENSE`, also declared in `package.json`)
 
 - `npm run dev` — development
 - `npm run build` — compile main/preload/renderer
+- `npm run locator:build -- --legacy-fml <jar> --legacy-spi <jar> --modern-loader <jar>` — rebuild bundled NeoForge locator JARs
 - `npm test` — Jest with coverage thresholds (>= 60% lines/statements/functions)
 - `npm run lint` / `npm run format`
 - `npm run dist:win|mac|linux` — package installers
@@ -36,7 +37,8 @@ MIT (`LICENSE`, also declared in `package.json`)
 - Server row also shows distro pack name (e.g. `Prominence™ II: Hasturian Era`) under the live title when they differ
 - Real-time game logs + kill button while game runs
 - Compact `btn-sm` for logout / instance actions / running-game controls
-- Per-server **Mods** modal: user `mods/` (toggle/delete) and distribution-managed pack mods (read-only); NeoForge pack mods may live in the instance `mods/` directory and are distinguished by their exact distribution paths
+- Per-server **Mods** modal: user `instance/mods/` (toggle/delete) and distribution-managed `common/mods/<loader>/` pack mods (read-only)
+- `scripts/patch-helios-core.cjs` applies the narrowly version-guarded helios-core 2.3 path extension after install (`NeoForgeMod`, centralized ForgeMod); review it when upgrading helios-core
 - Shared Java defaults in Settings; per-server overrides from Home
 - RAM inputs use slider + numeric field with validation against system memory
 - Linux Settings can install a user `.desktop` shortcut + icon for KDE/GNOME app menus

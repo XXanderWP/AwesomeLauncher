@@ -4,7 +4,7 @@ This repository is the **AwesomeCraft** Minecraft launcher (Electron + TypeScrip
 
 ## Purpose
 
-Desktop launcher for AwesomeCraft projects. It authenticates players via **Ely.by**, downloads vanilla Minecraft + Fabric pack files from `files.awesome-craft.ru`, launches the game with `authlib-injector`, and supports multi-server UI (currently Prominence™ II: Hasturian Era).
+Desktop launcher for AwesomeCraft projects. It authenticates players via **Ely.by**, downloads vanilla Minecraft plus Fabric/NeoForge pack files from `files.awesome-craft.ru`, launches the game with `authlib-injector`, and supports multiple server packs.
 
 ## License
 
@@ -50,7 +50,8 @@ src/main/        Electron main process services + IPC
 src/preload/     contextBridge API
 src/renderer/    React UI
 src/shared/      Shared types and pure helpers
-resources/       authlib-injector + macOS quarantine instructions
+resources/       authlib-injector, NeoForge locators, macOS instructions
+neoforge-locator/ version-specific FML candidate locator sources
 build/           App icons / branding
 tests/           Jest unit tests
 .github/workflows/  CI + Release

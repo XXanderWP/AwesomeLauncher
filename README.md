@@ -15,6 +15,9 @@ Each localized document is split into:
 1. **Users** — download, install, play, settings
 2. **Developers** — stack, scripts, CI/CD, contributing
 
+Distribution-managed mods are stored centrally under `common/mods/<loader>`.
+The per-instance `mods/` directory is reserved for mods installed by the user.
+
 ## Quick links
 
 - Releases: https://github.com/XXanderWP/AwesomeLauncher/releases
