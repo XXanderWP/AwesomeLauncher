@@ -35,6 +35,7 @@ interface Props {
   onOpenLogs: () => void
   onOpenUpdateSettings: () => void
   onConfigChange: (config: AppConfig) => void | Promise<void>
+  onInstanceDeleted: (serverId: string) => void | Promise<void>
   updateStatus: UpdateStatus | null
 }
 
@@ -57,6 +58,7 @@ export function HomePage({
   onOpenLogs,
   onOpenUpdateSettings,
   onConfigChange,
+  onInstanceDeleted,
   updateStatus
 }: Props): React.JSX.Element {
   const selectedId = config.selectedServerId || servers[0]?.id
@@ -75,14 +77,16 @@ export function HomePage({
     void (async () => {
       const next: Record<string, boolean> = {}
       await Promise.all(
-        servers.map(async (server) => {
-          try {
-            const result = await window.awesomeAPI.hasXaeroMap(server.id, server.address)
-            next[server.id] = result.available
-          } catch {
-            next[server.id] = false
-          }
-        })
+        servers
+          .filter((server) => !server.archive)
+          .map(async (server) => {
+            try {
+              const result = await window.awesomeAPI.hasXaeroMap(server.id, server.address)
+              next[server.id] = result.available
+            } catch {
+              next[server.id] = false
+            }
+          })
       )
       if (!cancelled) setMapAvailableByServer(next)
     })()
@@ -99,6 +103,7 @@ export function HomePage({
     const ok = window.confirm(t('instance.delete.confirm', name))
     if (!ok) return
     await window.awesomeAPI.deleteInstance(serverId)
+    await onInstanceDeleted(serverId)
   }
 
   const updateVersion = updateStatus?.info?.version
@@ -126,6 +131,7 @@ export function HomePage({
             {servers.map((server) => {
               const status = statuses[server.id]
               const selected = server.id === selectedId
+              const archived = server.archive === true
               const displayName = resolveServerDisplayName(
                 server.name,
                 status?.description,
@@ -134,7 +140,7 @@ export function HomePage({
               return (
                 <div
                   key={server.id}
-                  className={`server-row${selected ? ' selected' : ''}`}
+                  className={`server-row${selected ? ' selected' : ''}${archived ? ' server-row--archived' : ''}`}
                   onClick={() => void onSelectServer(server.id)}
                   role="button"
                   tabIndex={0}
@@ -142,27 +148,34 @@ export function HomePage({
                     if (e.key === 'Enter' || e.key === ' ') void onSelectServer(server.id)
                   }}
                 >
-                  <img src={server.icon || ''} alt="" />
+                  {archived ? null : <img src={server.icon || ''} alt="" />}
                   <div className="server-meta">
                     <h3>{displayName}</h3>
                     {displayName !== server.name ? (
                       <p className="server-pack">{server.name}</p>
                     ) : null}
                     <p>
-                      {server.minecraftVersion} · v{server.version} · {server.address}
+                      {[
+                        server.minecraftVersion,
+                        server.version ? `v${server.version}` : '',
+                        server.address
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
                     <div className="status-pill">
                       <span className={`dot ${status?.online ? 'on' : 'off'}`} />
                       {status?.online
                         ? `${t('home.online')} · ${t('home.players', status.playersOnline, status.playersMax)}`
                         : t('home.offline')}
+                      {archived ? ` · ${t('instance.archived')}` : ''}
                       {selected ? ` · ${t('home.selected')}` : ''}
                       {config.javaByServer[server.id] ? ` · ${t('instance.java.overridden')}` : ''}
                     </div>
                   </div>
                   <div className="actions actions-compact" style={{ marginTop: 0 }}>
                     <button
-                      className="btn btn-sm primary"
+                      className={`btn btn-sm ${archived ? 'warn' : 'primary'}`}
                       disabled={busy || gameState.running || !selected}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -184,7 +197,7 @@ export function HomePage({
                     ) : null}
                     <button
                       className="btn btn-sm"
-                      disabled={busy || gameState.running || !selected}
+                      disabled={archived || busy || gameState.running || !selected}
                       onClick={(e) => {
                         e.stopPropagation()
                         void onVerify(server.id)
@@ -194,6 +207,7 @@ export function HomePage({
                     </button>
                     <button
                       className="btn btn-sm"
+                      disabled={archived}
                       onClick={(e) => {
                         e.stopPropagation()
                         setOnlineServerId(server.id)

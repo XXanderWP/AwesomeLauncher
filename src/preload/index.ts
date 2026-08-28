@@ -6,6 +6,7 @@ import type {
   GameLogLine,
   GameProcessState,
   LegacyDataOffer,
+  LocalInstanceInfo,
   ModInfo,
   ModPreview,
   ElybyPublicProfile,
@@ -83,6 +84,7 @@ const api = {
     ipcRenderer.invoke(IPC.INSTANCE_OPEN, serverId),
   deleteInstance: (serverId: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.INSTANCE_DELETE, serverId),
+  listInstances: (): Promise<LocalInstanceInfo[]> => ipcRenderer.invoke(IPC.INSTANCE_LIST),
   hasXaeroMap: (
     serverId: string,
     host: string

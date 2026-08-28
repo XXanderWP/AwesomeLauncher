@@ -23,6 +23,8 @@ MIT (`LICENSE`, also declared in `package.json`)
 
 - `ConfigService` persists `config.json` in Electron `userData`
 - Game files live in configurable `dataDirectory` (default `~/.awesomelauncher` / `%APPDATA%\.awesomelauncher`)
+- `config.json` tracks local instances in `instances.{serverId}`. Existing folders are migrated as `archive: true`; archived files are never removed automatically and remain visible for manual deletion.
+- Archived instances can still be launched from a stored pack snapshot (`sync-index/{serverId}.distro.json`). Play is yellow and autoconnect is always off, including when the game setting is enabled.
 - Launcher boot is independent of distribution loading: the UI opens first, while the remote server list refreshes in the background so an unavailable file server cannot keep the splash screen open indefinitely.
 - On first launch with an empty data dir, offers one-time reuse of legacy Helios folder (`.helioslauncher`)
 - `DistroService` loads Helios-compatible `distribution.json`

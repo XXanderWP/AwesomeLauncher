@@ -49,6 +49,14 @@ import {
   resolveMacAppBundlePath
 } from '../../src/main/services/updater/macManualUpdate'
 import { getDefaultJvmOptions } from '../../src/shared/javaDefaults'
+import {
+  deleteServerSnapshot,
+  heliosDistributionFromRawServer,
+  loadServerSnapshot,
+  saveServerSnapshot,
+  shouldAutoconnectOnLaunch,
+  summaryFromDistroServer
+} from '../../src/main/services/distro/serverSnapshot'
 
 const { resolveNativeExtractPath } = require('../../src/main/services/launch/nativeExtract.js')
 const {
@@ -73,8 +81,10 @@ jest.mock('helios-core/mojang', () => ({
 describe('ConfigService', () => {
   it('loads defaults and persists accounts', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-cfg-'))
-    const previousAppData = process.env.APPDATA
-    process.env.APPDATA = dir
+    const dataDirectory = path.join(dir, 'game-data')
+    await fs.writeJson(path.join(dir, 'config.json'), {
+      settings: { launcher: { dataDirectory } }
+    })
     const service = new ConfigService(dir)
     const cfg = await service.load()
     expect(cfg.clientToken).toHaveLength(32)
@@ -84,6 +94,7 @@ describe('ConfigService', () => {
     expect(cfg.settings.launcher.language).toBe('system')
     expect(cfg.javaDefaults.maxRamMb).toBeGreaterThan(0)
     expect(cfg.javaDefaults.jvmOptions).toEqual(getDefaultJvmOptions())
+    expect(cfg.instances).toEqual({})
     expect(cfg.cachedServerNames).toEqual({})
 
     await service.setAccount(
@@ -115,11 +126,73 @@ describe('ConfigService', () => {
     const reloaded = new ConfigService(dir)
     await reloaded.load()
     expect(reloaded.get().settings.launcher.language).toBe('ru')
-    if (previousAppData == null) delete process.env.APPDATA
-    else process.env.APPDATA = previousAppData
     await fs.remove(dir)
   })
 
+  it('registers an existing local instance as archived', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-cfg-instance-'))
+    const dataDirectory = path.join(dir, 'game-data')
+    await fs.writeJson(path.join(dir, 'config.json'), {
+      settings: { launcher: { dataDirectory } }
+    })
+    const initial = new ConfigService(dir)
+    const config = await initial.load()
+    await fs.ensureDir(path.join(config.settings.launcher.dataDirectory, 'instances', 'OldPack'))
+
+    const migrated = new ConfigService(dir)
+    const next = await migrated.load()
+    expect(next.version).toBe(5)
+    expect(next.instances).toEqual({ OldPack: { archive: true } })
+
+    await fs.remove(dir)
+  })
+})
+
+describe('server launch snapshots', () => {
+  it('does not autoconnect archived launches even when the pack and setting allow it', () => {
+    expect(shouldAutoconnectOnLaunch(true, true)).toBe(false)
+    expect(shouldAutoconnectOnLaunch(false, true)).toBe(true)
+    expect(shouldAutoconnectOnLaunch(false, false)).toBe(false)
+  })
+
+  it('persists pack metadata and rebuilds a Helios server with autoconnect disabled', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ac-snap-'))
+    const rawServer = {
+      id: 'OldPack',
+      name: 'Old Pack',
+      description: 'gone from distro',
+      icon: 'https://example.com/icon.png',
+      version: '1.2.3',
+      address: 'play.example.com:25565',
+      minecraftVersion: '1.20.1',
+      mainServer: true,
+      autoconnect: true,
+      modules: []
+    }
+    const summary = summaryFromDistroServer(rawServer)
+    await saveServerSnapshot(dir, rawServer, summary)
+
+    const loaded = await loadServerSnapshot(dir, 'OldPack')
+    expect(loaded?.summary.id).toBe('OldPack')
+    expect(loaded?.summary.address).toBe('play.example.com')
+    expect(loaded?.rawServer.autoconnect).toBe(true)
+
+    const helios = heliosDistributionFromRawServer(
+      loaded!.rawServer,
+      path.join(dir, 'common'),
+      path.join(dir, 'instances')
+    )
+    const server = helios.getServerById('OldPack')
+    expect(server?.rawServer.autoconnect).toBe(false)
+    expect(server?.hostname).toBe('play.example.com')
+
+    await deleteServerSnapshot(dir, 'OldPack')
+    expect(await loadServerSnapshot(dir, 'OldPack')).toBeNull()
+    await fs.remove(dir)
+  })
+})
+
+describe('deepMerge', () => {
   it('deepMerge keeps sibling keys', () => {
     const merged = deepMerge(
       { a: 1, nested: { x: 1, y: 2 }, list: [1] } as Record<string, unknown>,

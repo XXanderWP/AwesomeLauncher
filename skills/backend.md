@@ -45,3 +45,5 @@ Legacy AwesomeCraftLauncher (Helios) default (one-time reuse offer when new dir 
 ```
 
 Launcher config: `{userData}/config.json`
+- Local instance metadata: `instances.{serverId}.archive` is `true` when a downloaded instance is absent from the current distribution. It is retained until the player explicitly deletes it.
+- Launch snapshot for archived play: `{dataDirectory}/sync-index/{serverId}.distro.json` (Helios `rawServer` + summary). Archived launch skips file repair and never auto-joins the game server.

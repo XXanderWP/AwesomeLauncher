@@ -31,6 +31,8 @@ xattr -dr com.apple.quarantine "/Applications/AwesomeCraftLauncher.app"
 - Separate user mods and verified pack mods
 - Live server online status on the home screen
 - Starts even when the pack file server is temporarily unavailable
+- Keeps downloaded instances visible as archived until you explicitly delete them
+- Archived instances can still be launched; Play is yellow and never auto-joins the server
 - Settings: data folder, language (EN/RU/UK), Java memory, update mode
 - File integrity verification without wiping your personal configs
 - Real-time game logs and Stop Game button while Minecraft is running

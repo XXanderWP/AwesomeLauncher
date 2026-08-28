@@ -17,6 +17,7 @@ Each localized document is split into:
 
 Distribution-managed mods are stored centrally under `common/mods/<loader>`.
 The per-instance `mods/` directory is reserved for mods installed by the user.
+Downloaded instances remain visible as archived when the distribution server is unavailable; the launcher never deletes them automatically. Archived instances can still be launched (yellow Play) without joining the game server.
 
 ## Quick links
 

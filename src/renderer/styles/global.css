@@ -301,6 +301,17 @@ a {
   border-color: transparent;
 }
 
+.btn.warn {
+  background: linear-gradient(135deg, var(--warn), #c4922e);
+  color: #1a1406;
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.btn.warn:hover {
+  border-color: rgba(224, 179, 77, 0.55);
+}
+
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -612,6 +623,14 @@ a {
   border-radius: var(--radius);
   object-fit: cover;
   background: var(--bg-3);
+}
+
+.server-row--archived {
+  grid-template-columns: 1fr;
+}
+
+.server-row--archived .actions {
+  grid-column: 1;
 }
 
 .server-meta h3 {
@@ -1584,6 +1603,10 @@ button.online-player-meta-link:focus-visible {
 @media (max-width: 860px) {
   .server-row {
     grid-template-columns: 56px 1fr;
+  }
+
+  .server-row--archived {
+    grid-template-columns: 1fr;
   }
 
   .server-row > :last-child {

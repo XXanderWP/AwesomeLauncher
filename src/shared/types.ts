@@ -65,11 +65,21 @@ export interface AppConfig {
   /** Shared Java defaults; per-server overrides live in javaByServer. */
   javaDefaults: JavaServerSettings
   javaByServer: Record<string, JavaServerSettings>
+  /** Local instance metadata, keyed by the distribution server id. */
+  instances: Record<string, InstanceConfig>
   /**
    * Last known live server names from status MOTD, keyed by distro server id.
    * Used when the game server is offline.
    */
   cachedServerNames: Record<string, string>
+}
+
+export interface InstanceConfig {
+  /**
+   * The instance no longer exists in the current distribution. Its local files
+   * are deliberately retained until the player chooses to delete them.
+   */
+  archive?: boolean
 }
 
 export interface DistroServerSummary {
@@ -83,6 +93,8 @@ export interface DistroServerSummary {
   minecraftVersion: string
   mainServer: boolean
   autoconnect: boolean
+  /** Local instance retained after its server disappeared from the distribution. */
+  archive?: boolean
   java: {
     supported: string
     suggestedMajor: number
@@ -91,6 +103,11 @@ export interface DistroServerSummary {
       recommended: number
     }
   }
+}
+
+export interface LocalInstanceInfo {
+  id: string
+  summary: DistroServerSummary | null
 }
 
 export interface ServerOnlineStatus {
@@ -266,6 +283,7 @@ export const IPC = {
   INSTALL_LAUNCH: 'install:launch',
   INSTANCE_OPEN: 'instance:open',
   INSTANCE_DELETE: 'instance:delete',
+  INSTANCE_LIST: 'instance:list',
   XAERO_MAP_HAS: 'xaero-map:has',
   XAERO_MAP_RENDER: 'xaero-map:render',
   XAERO_MAP_LOOKUP_BLOCK: 'xaero-map:lookup-block',

@@ -12,7 +12,7 @@ import { getDefaultJvmOptions } from '../../../shared/javaDefaults'
 import { createClientToken } from '../auth/elybyAuth'
 import { defaultDataDirectory } from '../../utils/paths'
 
-const CONFIG_VERSION = 4
+const CONFIG_VERSION = 5
 
 export function buildDefaultJavaSettings(
   defaults?: Partial<JavaServerSettings>
@@ -54,6 +54,7 @@ function buildDefaultConfig(): AppConfig {
     },
     javaDefaults: buildDefaultJavaSettings(),
     javaByServer: {},
+    instances: {},
     cachedServerNames: {}
   }
 }
@@ -72,7 +73,9 @@ export class ConfigService {
   }
 
   async load(): Promise<AppConfig> {
+    let loadedExistingConfig = false
     if (await fs.pathExists(this.configPath)) {
+      loadedExistingConfig = true
       try {
         const raw = await fs.readJson(this.configPath)
         this.config = this.mergeWithDefaults(raw)
@@ -85,6 +88,8 @@ export class ConfigService {
       await this.save()
     }
     await fs.ensureDir(this.config.settings.launcher.dataDirectory)
+    const registeredInstances = await this.registerExistingInstances()
+    if (loadedExistingConfig || registeredInstances) await this.save()
     return this.get()
   }
 
@@ -182,6 +187,12 @@ export class ConfigService {
     return this.get()
   }
 
+  async removeInstance(serverId: string): Promise<AppConfig> {
+    delete this.config.instances[serverId]
+    await this.save()
+    return this.get()
+  }
+
   getLanguageSetting(): LanguageSetting {
     return this.config.settings.launcher.language
   }
@@ -202,6 +213,8 @@ export class ConfigService {
       raw as DeepPartial<Record<string, unknown>>
     ) as unknown as AppConfig
 
+    merged.version = CONFIG_VERSION
+
     if (!merged.javaDefaults) {
       // Migrate older configs that only had javaByServer entries.
       const firstOverride = Object.values(merged.javaByServer || {})[0]
@@ -209,6 +222,9 @@ export class ConfigService {
     }
     if (!merged.cachedServerNames) {
       merged.cachedServerNames = {}
+    }
+    if (!merged.instances) {
+      merged.instances = {}
     }
     if (typeof merged.settings?.launcher?.skipLoadingGifs !== 'boolean') {
       merged.settings.launcher.skipLoadingGifs = false
@@ -223,6 +239,28 @@ export class ConfigService {
       merged.settings.launcher.legacyDataPromptSeen = false
     }
     return merged
+  }
+
+  /**
+   * Older configs did not track local instances. Keep every existing folder and
+   * mark it as archived until a current distribution confirms it is still active.
+   */
+  private async registerExistingInstances(): Promise<boolean> {
+    const directory = path.join(this.config.settings.launcher.dataDirectory, 'instances')
+    let entries: fs.Dirent[]
+    try {
+      entries = await fs.readdir(directory, { withFileTypes: true })
+    } catch {
+      return false
+    }
+
+    let changed = false
+    for (const entry of entries) {
+      if (!entry.isDirectory() || this.config.instances[entry.name]) continue
+      this.config.instances[entry.name] = { archive: true }
+      changed = true
+    }
+    return changed
   }
 }
 

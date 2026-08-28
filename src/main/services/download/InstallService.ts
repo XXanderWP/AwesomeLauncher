@@ -11,6 +11,7 @@ import {
 import type { JavaServerSettings, ProgressEvent } from '../../../shared/types'
 import { IPC } from '../../../shared/types'
 import { commonDirectory, instanceDirectory, instancesDirectory } from '../../utils/paths'
+import { heliosDistributionFromRawServer, loadServerSnapshot } from '../distro/serverSnapshot'
 import type { ConfigService } from '../config/ConfigService'
 import type { DistroService } from '../distro/DistroService'
 import { backupPreservedFiles, restorePreservedFiles, vacatePreservedFiles } from './preserveBackup'
@@ -240,21 +241,70 @@ export class InstallService {
   }
 
   async prepareLaunch(serverId: string): Promise<InstallResult> {
-    const summary = (await this.distro.get()).servers.find((s) => s.id === serverId)
-    const suggestedMajor = summary?.java.suggestedMajor || 17
-    const semverRange = summary?.java.supported || `>=${suggestedMajor} <${suggestedMajor + 1}`
+    const { servers, raw: distro } = await this.distro.get()
+    const liveSummary = servers.find((s) => s.id === serverId)
+    const liveServer =
+      distro.getServerById?.(serverId) ||
+      distro.servers?.find((s: any) => (s.rawServer?.id || s.id) === serverId)
+
+    if (!liveSummary || !liveServer) {
+      return this.prepareArchivedLaunch(serverId)
+    }
+
+    const suggestedMajor = liveSummary.java.suggestedMajor || 17
+    const semverRange = liveSummary.java.supported || `>=${suggestedMajor} <${suggestedMajor + 1}`
     const javaPath = await this.ensureJava(serverId, semverRange, suggestedMajor)
 
     await this.verifyAndRepair(serverId)
 
-    const { raw: distro } = await this.distro.get()
+    const { raw: repaired } = await this.distro.get()
     const server =
-      distro.getServerById?.(serverId) ||
-      distro.servers?.find((s: any) => (s.rawServer?.id || s.id) === serverId)
+      repaired.getServerById?.(serverId) ||
+      repaired.servers?.find((s: any) => (s.rawServer?.id || s.id) === serverId)
     if (!server) {
       throw new Error(`Server not found: ${serverId}`)
     }
 
+    return this.loadLaunchIndexes(serverId, repaired, server, javaPath)
+  }
+
+  private async prepareArchivedLaunch(serverId: string): Promise<InstallResult> {
+    const dataDir = this.config.getDataDirectory()
+    const snapshot = await loadServerSnapshot(dataDir, serverId)
+    if (!snapshot) {
+      throw new Error(`Archived instance cannot be launched: missing pack metadata for ${serverId}`)
+    }
+
+    const suggestedMajor = snapshot.summary.java.suggestedMajor || 17
+    const semverRange =
+      snapshot.summary.java.supported || `>=${suggestedMajor} <${suggestedMajor + 1}`
+    const javaPath = await this.ensureJava(serverId, semverRange, suggestedMajor)
+
+    this.emitProgress({
+      phase: 'launch',
+      percent: 0,
+      message: 'Preparing archived instance'
+    })
+
+    const distro = heliosDistributionFromRawServer(
+      snapshot.rawServer,
+      commonDirectory(dataDir),
+      instancesDirectory(dataDir)
+    )
+    const server = distro.getServerById(serverId)
+    if (!server) {
+      throw new Error(`Archived instance cannot be launched: invalid pack metadata for ${serverId}`)
+    }
+
+    return this.loadLaunchIndexes(serverId, distro, server, javaPath)
+  }
+
+  private async loadLaunchIndexes(
+    serverId: string,
+    distro: any,
+    server: any,
+    javaPath: string
+  ): Promise<InstallResult> {
     const dataDir = this.config.getDataDirectory()
     const commonDir = commonDirectory(dataDir)
     const raw = server.rawServer || server

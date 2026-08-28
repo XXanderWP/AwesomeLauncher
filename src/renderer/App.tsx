@@ -5,6 +5,7 @@ import type {
   GameLogLine,
   GameProcessState,
   LanguageSetting,
+  LocalInstanceInfo,
   ModPreview,
   ProgressEvent,
   ServerOnlineStatus,
@@ -37,10 +38,32 @@ function dragHasFiles(event: React.DragEvent): boolean {
   return Array.from(event.dataTransfer?.types || []).includes('Files')
 }
 
+function archivedInstanceSummary(id: string, name: string): DistroServerSummary {
+  return {
+    id,
+    name,
+    description: '',
+    icon: '',
+    version: '',
+    address: '',
+    port: 25565,
+    minecraftVersion: '',
+    mainServer: false,
+    autoconnect: false,
+    archive: true,
+    java: {
+      supported: '>=17',
+      suggestedMajor: 17,
+      ram: { minimum: 4096, recommended: 8192 }
+    }
+  }
+}
+
 export function App(): React.JSX.Element {
   const [ready, setReady] = useState(false)
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [servers, setServers] = useState<DistroServerSummary[]>([])
+  const [localInstances, setLocalInstances] = useState<LocalInstanceInfo[]>([])
   const [statuses, setStatuses] = useState<Record<string, ServerOnlineStatus>>({})
   const [view, setView] = useState<View>('home')
   const [version, setVersion] = useState('')
@@ -92,7 +115,20 @@ export function App(): React.JSX.Element {
     return config.accounts[config.selectedAccountUuid] ?? null
   }, [config])
 
-  const modsServer = servers.find((s) => s.id === modsServerId) || null
+  const displayServers = useMemo(() => {
+    const activeIds = new Set(servers.map((server) => server.id))
+    const archived = localInstances
+      .filter((item) => !activeIds.has(item.id))
+      .map((item) => {
+        if (item.summary) {
+          return { ...item.summary, archive: true, autoconnect: false }
+        }
+        return archivedInstanceSummary(item.id, config?.cachedServerNames[item.id] || item.id)
+      })
+    return [...servers.map((server) => ({ ...server, archive: false })), ...archived]
+  }, [config?.cachedServerNames, localInstances, servers])
+
+  const modsServer = displayServers.find((s) => s.id === modsServerId) || null
   const modsServerName = modsServer
     ? resolveServerDisplayName(
         modsServer.name,
@@ -106,6 +142,21 @@ export function App(): React.JSX.Element {
       setModsServerId(null)
     }
   }, [view])
+
+  useEffect(() => {
+    let cancelled = false
+    void window.awesomeAPI
+      .listInstances()
+      .then((items) => {
+        if (!cancelled) setLocalInstances(items)
+      })
+      .catch(() => {
+        if (!cancelled) setLocalInstances([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [config?.settings.launcher.dataDirectory])
 
   useEffect(() => {
     if (!bootReady || !config) return
@@ -131,6 +182,15 @@ export function App(): React.JSX.Element {
         if (cancelled) return
 
         setServers(distro.servers)
+        const archivedEntries = Object.entries(cfg.instances).filter(
+          ([id, instance]) => instance.archive && distro.servers.some((server) => server.id === id)
+        )
+        if (archivedEntries.length > 0) {
+          const next = await window.awesomeAPI.updateConfig({
+            instances: Object.fromEntries(archivedEntries.map(([id]) => [id, { archive: false }]))
+          })
+          if (!cancelled) setConfig(next)
+        }
         if (!cfg.selectedServerId && distro.servers.length > 0) {
           const main = distro.servers.find((s) => s.mainServer) || distro.servers[0]
           const next = await window.awesomeAPI.updateConfig({ selectedServerId: main.id })
@@ -559,7 +619,7 @@ export function App(): React.JSX.Element {
             <HomePage
               config={config}
               account={account}
-              servers={servers}
+              servers={displayServers}
               statuses={statuses}
               progress={progress}
               gameState={gameState}
@@ -606,6 +666,10 @@ export function App(): React.JSX.Element {
                 setView('settings')
               }}
               onConfigChange={async (next) => setConfig(next)}
+              onInstanceDeleted={async (serverId) => {
+                setLocalInstances((items) => items.filter((item) => item.id !== serverId))
+                setConfig(await window.awesomeAPI.getConfig())
+              }}
               updateStatus={updateStatus}
             />
           )}

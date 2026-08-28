@@ -35,8 +35,9 @@ import {
 import { IPC } from '../shared/types'
 import type { AppConfig, UpdateMode } from '../shared/types'
 import { bytesToMb } from '../shared/ramValidation'
-import { instanceDirectory, legacyDefaultDataDirectory } from './utils/paths'
+import { instanceDirectory, instancesDirectory, legacyDefaultDataDirectory } from './utils/paths'
 import { evaluateLegacyDataOffer } from './services/config/legacyData'
+import { deleteServerSnapshot, loadServerSnapshot } from './services/distro/serverSnapshot'
 import { PROTOCOL_SCHEME, findProtocolUrlInArgv, parseLaunchProtocolUrl } from '../shared/protocol'
 
 // Strip Cursor / foreign AppImage LD_LIBRARY_PATH from the host before any spawn.
@@ -387,8 +388,27 @@ function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.INSTALL_LAUNCH, async (_e, serverId: string) => {
-    await configService.update({ selectedServerId: serverId })
+    await configService.update({
+      selectedServerId: serverId
+    })
     return gameService.launch(serverId)
+  })
+
+  ipcMain.handle(IPC.INSTANCE_LIST, async () => {
+    const dataDir = configService.getDataDirectory()
+    const directory = instancesDirectory(dataDir)
+    try {
+      const entries = await fs.readdir(directory, { withFileTypes: true })
+      const ids = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+      return Promise.all(
+        ids.map(async (id) => {
+          const snapshot = await loadServerSnapshot(dataDir, id)
+          return { id, summary: snapshot?.summary ?? null }
+        })
+      )
+    } catch {
+      return []
+    }
   })
 
   ipcMain.handle(IPC.INSTANCE_OPEN, async (_e, serverId: string) => {
@@ -408,6 +428,8 @@ function registerIpc(): void {
       await fs.remove(dir)
     }
     await configService.clearJavaOverride(serverId)
+    await configService.removeInstance(serverId)
+    await deleteServerSnapshot(configService.getDataDirectory(), serverId)
     return true
   })
 

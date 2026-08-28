@@ -11,6 +11,7 @@ import { ensurePlayableSession } from '../auth/elybyDeviceCode'
 import { createRequire } from 'module'
 import { resolveAuthlibInjectorPath, setLaunchBridge } from '../launch/launchBridge.js'
 import { ensureSdrpLogState } from '../discord/prominencePresence'
+import { loadServerSnapshot, shouldAutoconnectOnLaunch } from '../distro/serverSnapshot'
 
 const require = createRequire(__filename)
 const ProcessBuilder = require('../launch/processbuilder.legacy.js')
@@ -96,12 +97,22 @@ export class GameService {
     await this.config.setAccount(account, true)
 
     this.emitProgressLaunch('Preparing game files')
+    const liveSummary = (await this.distro.get()).servers.find((s) => s.id === serverId)
+    const archived = !liveSummary
+    const snapshot = archived
+      ? await loadServerSnapshot(this.config.getDataDirectory(), serverId)
+      : null
+    const summary = liveSummary || snapshot?.summary
+    if (!summary) {
+      throw new Error(
+        archived
+          ? `Archived instance cannot be launched: missing pack metadata for ${serverId}`
+          : `Unknown server: ${serverId}`
+      )
+    }
+
     const prepared = await this.install.prepareLaunch(serverId)
     const cfg = this.config.get()
-    const summary = (await this.distro.get()).servers.find((s) => s.id === serverId)
-    if (!summary) {
-      throw new Error(`Unknown server: ${serverId}`)
-    }
 
     const javaSettings = this.config.getJavaSettings(serverId, {
       minRamMb: summary.java.ram.minimum,
@@ -135,7 +146,7 @@ export class GameService {
       serverId,
       hostname: summary.address,
       port: summary.port,
-      autoconnect: summary.autoconnect,
+      autoconnect: shouldAutoconnectOnLaunch(archived, summary.autoconnect),
       launcherVersion: app.getVersion(),
       authlibInjectorPath: authlibPath
     })
@@ -153,6 +164,9 @@ export class GameService {
     if (prepared.server && typeof prepared.server === 'object') {
       prepared.server.hostname = summary.address
       prepared.server.port = summary.port
+      if (archived && prepared.server.rawServer) {
+        prepared.server.rawServer.autoconnect = false
+      }
     }
 
     const child: ChildProcess = builder.build()
